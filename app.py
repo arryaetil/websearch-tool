@@ -1,19 +1,16 @@
-
-Copy
-
 import streamlit as st
 import json
 from datetime import datetime
 from researcher import run_research
 from pdf_export import generate_pdf
- 
+
 st.set_page_config(
     page_title="KYCx · Adverse Media Check",
     page_icon="🔍",
     layout="wide",
     initial_sidebar_state="expanded"
 )
- 
+
 st.markdown("""
 <style>
     .block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
@@ -108,8 +105,7 @@ st.markdown("""
     hr { border-color: #f1f5f9 !important; }
 </style>
 """, unsafe_allow_html=True)
- 
-# ── Sidebar
+
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("""
@@ -119,7 +115,7 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
     api_key = st.text_input("OpenAI API Key", type="password")
- 
+
     st.markdown("""
     <div style='margin-top:1.5rem;padding-top:1rem;border-top:1px solid #1e4a70'>
         <div style='font-size:0.7rem;color:#64a0c8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.6rem'>System</div>
@@ -128,14 +124,14 @@ with st.sidebar:
     st.markdown("<div style='font-size:0.78rem;color:#94b8d8'>🤖 Model: gpt-5 + web search</div>", unsafe_allow_html=True)
     st.markdown("<div style='font-size:0.78rem;color:#94b8d8;margin-top:4px'>🔍 Dual-pass research</div>", unsafe_allow_html=True)
     st.markdown("<div style='font-size:0.78rem;color:#94b8d8;margin-top:4px'>📋 Structured JSON output</div>", unsafe_allow_html=True)
- 
+
     st.markdown("""
     <div style='margin-top:1.5rem;padding:0.75rem;background:#0a3d1f;border-radius:8px;border:1px solid #166534'>
         <div style='font-size:0.72rem;font-weight:700;color:#4ade80;margin-bottom:3px'>● EU GDPR Compliant</div>
         <div style='font-size:0.7rem;color:#86efac'>Audit log active<br>Human review required</div>
     </div>
     """, unsafe_allow_html=True)
- 
+
 # ── Main header ───────────────────────────────────────────────────────────────
 st.markdown("""
 <div class="kycx-header">
@@ -149,7 +145,7 @@ st.markdown("""
     </div>
 </div>
 """, unsafe_allow_html=True)
- 
+
 # ── GDPR notice ───────────────────────────────────────────────────────────────
 st.markdown("""
 <div class="gdpr-notice">
@@ -158,11 +154,11 @@ for legitimate compliance purposes. All results require human analyst review.
 All searches are logged. Do not use without a valid legal basis.
 </div>
 """, unsafe_allow_html=True)
- 
+
 # ── Input form ────────────────────────────────────────────────────────────────
 with st.container():
     st.markdown('<div class="section-header">Subject Information</div>', unsafe_allow_html=True)
- 
+
     col1, col2 = st.columns(2)
     with col1:
         full_name   = st.text_input("Full name *", placeholder="Jan de Vries")
@@ -170,12 +166,12 @@ with st.container():
     with col2:
         age         = st.text_input("Age (optional)", placeholder="42")
         employer    = st.text_input("Employer (optional)", placeholder="ING Bank")
- 
+
     context     = st.text_input("Research context (optional)", placeholder="Mortgage application · €450,000")
     analyst_name= st.text_input("Analyst name (audit log)", placeholder="Your name")
- 
+
     run_btn = st.button("🔍 Run Identity Research", type="primary", use_container_width=True)
- 
+
 # ── Run research ──────────────────────────────────────────────────────────────
 if run_btn:
     if not api_key:
@@ -184,7 +180,7 @@ if run_btn:
     if not full_name or not city_region:
         st.error("Full name and city/region are required.")
         st.stop()
- 
+
     with st.status("Running dual-pass research...", expanded=True) as status:
         st.write("🔎 Pass 1 — Identity & professional background...")
         st.write("📰 Pass 2 — Adverse media & risk indicators...")
@@ -200,7 +196,7 @@ if run_btn:
             status.update(label=f"Error: {error}", state="error")
             st.stop()
         status.update(label="Research complete!", state="complete")
- 
+
     # Audit log
     with open("audit_log.jsonl", "a") as f:
         f.write(json.dumps({
@@ -210,7 +206,7 @@ if run_btn:
             "subject_city": city_region,
             "context": context
         }) + "\n")
- 
+
     # ── Results ───────────────────────────────────────────────────────────────
     st.markdown("""
     <div class="review-banner">
@@ -219,7 +215,7 @@ if run_btn:
         A qualified analyst must review all findings before any decision is made.
     </div>
     """, unsafe_allow_html=True)
- 
+
     # Title row
     col_title, col_meta = st.columns([3, 2])
     with col_title:
@@ -228,13 +224,13 @@ if run_btn:
         st.markdown(f"<div style='text-align:right;color:#94a3b8;font-size:0.78rem;padding-top:8px'>"
                     f"Generated {datetime.now().strftime('%d %b %Y %H:%M')} · Analyst: {analyst_name or '—'}</div>",
                     unsafe_allow_html=True)
- 
+
     # Confidence score
     score   = int(result.get("confidence_score", 0))
     verdict = result.get("confidence_verdict", "Low")
     reason  = result.get("confidence_reasoning", "")
     color   = "#22c55e" if score >= 75 else "#f59e0b" if score >= 45 else "#ef4444"
- 
+
     st.markdown(f"""
     <div class="score-wrap">
         <div>
@@ -250,16 +246,16 @@ if run_btn:
         </div>
     </div>
     """, unsafe_allow_html=True)
- 
+
     # Name variations
     variations = result.get("name_variations_searched", [])
     if variations:
         pills = "".join(f'<span class="var-pill">{v}</span>' for v in variations)
         st.markdown(f"<div style='margin-bottom:1rem'><span style='font-size:0.72rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;font-weight:700'>Searched variations</span><br/><div style='margin-top:6px'>{pills}</div></div>", unsafe_allow_html=True)
- 
+
     # Two column layout
     col_l, col_r = st.columns(2)
- 
+
     def data_items(items, title_key, sub_keys, url_key=None):
         if not items:
             return '<div class="empty-state">Insufficient data</div>'
@@ -273,20 +269,20 @@ if run_btn:
             if url:  html += f'<div class="di-url">{url[:60]}{"…" if len(url)>60 else ""}</div>'
             html += '</div>'
         return html
- 
+
     with col_l:
         st.markdown('<div class="section-header">👤 Identity matches</div>', unsafe_allow_html=True)
         st.markdown(data_items(result.get("identity_matches",[]),
                                "name", ["description", "confidence"]), unsafe_allow_html=True)
- 
+
         st.markdown('<div class="section-header" style="margin-top:1.2rem">💼 Professional profiles</div>', unsafe_allow_html=True)
         st.markdown(data_items(result.get("professional_profiles",[]),
                                "role", ["company", "platform"], "url_hint"), unsafe_allow_html=True)
- 
+
         st.markdown('<div class="section-header" style="margin-top:1.2rem">🏢 Business records</div>', unsafe_allow_html=True)
         st.markdown(data_items(result.get("business_records",[]),
                                "entity", ["role", "status"], "source"), unsafe_allow_html=True)
- 
+
     with col_r:
         st.markdown('<div class="section-header">📰 Media mentions</div>', unsafe_allow_html=True)
         media = result.get("media_mentions", [])
@@ -303,11 +299,11 @@ if run_btn:
                 )
         else:
             st.markdown('<div class="empty-state">Insufficient data</div>', unsafe_allow_html=True)
- 
+
         st.markdown('<div class="section-header" style="margin-top:1.2rem">🌐 Social media</div>', unsafe_allow_html=True)
         st.markdown(data_items(result.get("social_media_presence",[]),
                                "platform", ["description"]), unsafe_allow_html=True)
- 
+
     # Risk flags full width
     st.markdown('<div class="section-header" style="margin-top:1.2rem">🚨 Risk flags</div>', unsafe_allow_html=True)
     flags = result.get("risk_flags", [])
@@ -324,7 +320,7 @@ if run_btn:
                 f'</div>',
                 unsafe_allow_html=True
             )
- 
+
     # Sources
     st.markdown('<div class="section-header" style="margin-top:1.2rem">🔗 Sources</div>', unsafe_allow_html=True)
     sources = result.get("sources", [])
@@ -343,11 +339,11 @@ if run_btn:
             )
     else:
         st.markdown('<div class="empty-state">No sources recorded.</div>', unsafe_allow_html=True)
- 
+
     # Export buttons
     st.divider()
     col_pdf, col_json = st.columns(2)
- 
+
     with col_pdf:
         try:
             pdf_bytes = generate_pdf(result, full_name, city_region, analyst_name)
@@ -360,7 +356,7 @@ if run_btn:
             )
         except Exception as e:
             st.warning(f"PDF generatie mislukt: {e}")
- 
+
     with col_json:
         st.download_button(
             label="⬇️ Download JSON",
@@ -369,6 +365,6 @@ if run_btn:
             mime="application/json",
             use_container_width=True
         )
- 
+
     with st.expander("📄 Raw JSON bekijken"):
         st.json(result)
