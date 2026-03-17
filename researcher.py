@@ -155,19 +155,28 @@ def build_adverse_prompt(name, city, age, employer, context):
     if context:
         lines.append(f"CONTEXT: {context}")
  
+    # Build all name forms
+    initial_lastname = f"{first_initial}. {last_name}"
+    full_name_q = name
+ 
     lines += [
         "",
-        "Run ALL of these searches - do not skip any:",
-        f'1. "{first_initial}. {last_name}" fraude OR faillissement OR rechtbank',
-        f'2. "{first_initial}. {last_name}" {city} schulden OR oplichting OR FIOD',
-        f'3. "{name}" fraude OR faillissement OR rechtbank OR schulden',
-        f'4. "{last_name}" {city} fraude OR oplichting OR strafrecht OR belastingdienst',
-        f'5. "{last_name}" {city} surseance OR curator OR insolventie OR failliet',
-        f'6. "{last_name}" {city} nieuws',
+        "CRITICAL: Run ALL searches IN ORDER - do not skip any:",
         "",
-        "IMPORTANT: Dutch/Belgian media anonymizes names in legal cases.",
-        f'If you find "{first_initial}. {last_name}" or "{first_name} B." articles',
-        "from the same city/region - include them as possible matches.",
+        "── PRIMARY (initial + lastname - most effective for NL/BE media) ──",
+        f'1. "{initial_lastname}" {city}',
+        f'2. "{initial_lastname}" fraude OR faillissement OR rechtbank',
+        f'3. "{initial_lastname}" schulden OR oplichting OR FIOD OR belastingdienst',
+        f'4. "{initial_lastname}" surseance OR curator OR insolventie OR failliet',
+        "",
+        "── SECONDARY (full name + lastname only) ──",
+        f'5. "{full_name_q}" fraude OR faillissement OR rechtbank',
+        f'6. "{last_name}" {city} fraude OR oplichting OR strafrecht',
+        f'7. "{last_name}" {city} nieuws OR rechtszaak OR veroordeeld',
+        "",
+        "IMPORTANT: Dutch/Belgian media ALWAYS uses initial+lastname in legal cases.",
+        f'"{initial_lastname}" searches will find most NL adverse media.',
+        f'If you find "{initial_lastname}" or "{first_name} B." articles from {city} - include them.',
         "",
         "Return ONLY this JSON:",
         '{',
@@ -351,3 +360,4 @@ def run_research(api_key, name, city, age="", employer="", context=""):
         return fallback_report(name, city), f"JSON parse error: {e}"
     except Exception as e:
         return fallback_report(name, city), str(e)
+ 
