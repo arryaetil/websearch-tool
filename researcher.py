@@ -18,7 +18,12 @@ RULES:
 
 CRITICAL: You MUST respond with ONLY a valid JSON object using EXACTLY these field names.
 Do NOT use different field names. Do NOT add extra fields. Do NOT add markdown.
-Max 5 items per array. Max 200 chars per string value. No newlines in strings.
+Max 200 chars per string value. No newlines in strings.
+
+MEDIA PRIORITY: Finding media mentions and risk flags is the MOST IMPORTANT part of this research.
+Search extensively for news articles, court cases, fraud reports, and adverse media.
+Return UP TO 10 media mentions and UP TO 10 risk flags - find as many as possible.
+For all other arrays, max 5 items.
 
 REQUIRED JSON STRUCTURE:
 {
@@ -55,16 +60,23 @@ def build_prompt(name, city, age, employer, context):
 
     lines += [
         "",
-        "Run these searches:",
+        "Run ALL these searches and collect EVERY article and media mention you find:",
         f'1. "{initial_lastname}" {city}',
         f'2. "{name}" {city}',
         f'3. "{initial_lastname}" OR "{name}" linkedin OR kvk OR bedrijf',
         f'4. "{initial_lastname}" fraude OR faillissement OR rechtbank OR schulden',
-        f'5. "{last_name}" {city} nieuws OR oplichting OR FIOD',
+        f'5. "{last_name}" {city} nieuws OR oplichting OR FIOD OR belastingdienst',
+        f'6. "{initial_lastname}" veroordeeld OR aangehouden OR verdachte OR rechtszaak',
+        f'7. "{name}" site:nos.nl OR site:rtvoost.nl OR site:ad.nl OR site:telegraaf.nl',
         "",
-        "IMPORTANT: Return ONLY the JSON object with EXACTLY the field names from the schema.",
-        "Do not use different field names like 'professional_history' or 'sanctions_legal_issues'.",
-        "Use EXACTLY: identity_matches, professional_profiles, media_mentions, business_records,",
+        "MEDIA INSTRUCTIONS:",
+        "- Collect EVERY news article you find - aim for at least 5-10 media mentions",
+        "- Include both positive and negative articles",
+        "- For each article include the exact title, source, date and a summary",
+        "- Put ALL legal issues, fraud, bankruptcy in risk_flags with severity high/medium/low",
+        "",
+        "Return ONLY the JSON object with EXACTLY these field names:",
+        "identity_matches, professional_profiles, media_mentions, business_records,",
         "social_media_presence, risk_flags, confidence_score, confidence_verdict,",
         "confidence_reasoning, name_variations_searched, sources",
     ]
@@ -127,7 +139,7 @@ def normalize_report(data):
         if key in data and data[key]:
             items = data[key]
             result["media_mentions"] = []
-            for item in items[:5]:
+            for item in items[:10]:
                 if isinstance(item, dict):
                     result["media_mentions"].append({
                         "title": item.get("title", item.get("headline", "")),
