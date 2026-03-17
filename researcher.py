@@ -1,6 +1,5 @@
 """
 researcher.py - OpenAI Responses API met gpt-4o + web_search_preview
-Simpele en betrouwbare versie met initiaal-eerste zoekstrategie
 """
  
 import json
@@ -17,60 +16,24 @@ RULES:
 - No accusations - factual findings only
 - Human analyst review is always required
  
-IMPORTANT ABOUT DUTCH/BELGIAN MEDIA:
-- Media in the Netherlands and Belgium often writes "A. Lastname" instead of the full name
-- This is especially true for legal cases, fraud, bankruptcy, court cases
-- Always search for both the full name AND the initial+lastname version
-- If you find "A. Lastname" articles from the same city/region, include them as matches
- 
 Respond with ONLY a valid JSON object. Keep strings under 200 chars. Max 5 items per array. No newlines in strings."""
  
  
 def build_prompt(name, city, age, employer, context):
-    parts = name.strip().split()
-    last_name = parts[-1] if parts else name
-    first_initial = parts[0][0] if parts else ""
-    initial_lastname = f"{first_initial}. {last_name}"
- 
     lines = [
-        "Research this person for financial compliance. Use web search.",
+        "Search the web and research this individual for financial compliance review.",
         "",
-        f"FULL NAME: {name}",
-        f"ALSO SEARCH AS: {initial_lastname}",
-        f"LOCATION: {city}",
+        f"Name: {name}",
+        f"City/Region: {city}",
     ]
-    if age:
-        lines.append(f"AGE: {age}")
-    if employer:
-        lines.append(f"EMPLOYER: {employer}")
-    if context:
-        lines.append(f"CONTEXT: {context}")
- 
+    if age:      lines.append(f"Age: {age}")
+    if employer: lines.append(f"Employer: {employer}")
+    if context:  lines.append(f"Context: {context}")
     lines += [
         "",
-        "Run these searches in order:",
-        f'1. "{initial_lastname}" {city}',
-        f'2. "{name}" {city}',
-        f'3. "{initial_lastname}" OR "{name}" linkedin OR kvk OR bedrijf',
-        f'4. "{initial_lastname}" fraude OR faillissement OR rechtbank OR schulden',
-        f'5. "{initial_lastname}" FIOD OR oplichting OR curator OR insolventie',
-        f'6. "{last_name}" {city} nieuws',
-        "",
-        "Combine all findings into one report.",
-        "Return ONLY this JSON:",
-        '{',
-        '  "identity_matches": [{"name": "string", "description": "string", "confidence": "high|medium|low"}],',
-        '  "professional_profiles": [{"platform": "string", "role": "string", "company": "string", "url_hint": "string"}],',
-        '  "media_mentions": [{"title": "string", "source": "string", "date": "string", "summary": "string", "sentiment": "positive|neutral|negative"}],',
-        '  "business_records": [{"entity": "string", "role": "string", "status": "string", "source": "string"}],',
-        '  "social_media_presence": [{"platform": "string", "description": "string"}],',
-        '  "risk_flags": [{"severity": "high|medium|low", "category": "string", "description": "string"}],',
-        '  "confidence_score": "0-100",',
-        '  "confidence_verdict": "Low|Moderate|High|Very High",',
-        '  "confidence_reasoning": "string",',
-        '  "name_variations_searched": ["list of name variations searched"],',
-        '  "sources": [{"name": "string", "url": "string", "type": "string"}]',
-        '}',
+        "Find: identity matches, professional history, news/adverse media,",
+        "business registrations, social media, sanctions or legal issues.",
+        "Return ONLY the JSON object."
     ]
     return "\n".join(lines)
  
@@ -146,4 +109,3 @@ def run_research(api_key, name, city, age="", employer="", context=""):
         return fallback_report(name, city), f"JSON parse error: {e}"
     except Exception as e:
         return fallback_report(name, city), str(e)
- 
