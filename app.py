@@ -2,6 +2,8 @@ import streamlit as st
 import json
 from datetime import datetime
 from researcher import run_research
+from pdf_export import generate_pdf
+from pdf_export import generate_pdf
 
 st.set_page_config(
     page_title="Identity Research Tool",
@@ -225,13 +227,31 @@ if run_btn:
     else:
         st.caption("No sources recorded.")
 
-    # --- JSON Export ---
+    # --- PDF + JSON Export ---
     st.divider()
-    with st.expander("📄 Raw JSON report"):
-        st.json(result)
+    col_pdf, col_json = st.columns(2)
+
+    with col_pdf:
+        try:
+            pdf_bytes = generate_pdf(result, full_name, city_region, analyst_name)
+            st.download_button(
+                label="⬇️ Download PDF rapport",
+                data=pdf_bytes,
+                file_name=f"rapport_{full_name.replace(' ','_')}_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+                mime="application/pdf",
+                use_container_width=True
+            )
+        except Exception as e:
+            st.warning(f"PDF generatie mislukt: {e}")
+
+    with col_json:
         st.download_button(
             label="⬇️ Download JSON",
             data=json.dumps(result, indent=2, ensure_ascii=False),
             file_name=f"report_{full_name.replace(' ','_')}_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
-            mime="application/json"
+            mime="application/json",
+            use_container_width=True
         )
+
+    with st.expander("📄 Raw JSON rapport bekijken"):
+        st.json(result)
