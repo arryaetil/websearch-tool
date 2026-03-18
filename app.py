@@ -42,6 +42,9 @@ html, body, [data-testid="stAppViewContainer"] {
 
 #MainMenu, footer, header { visibility: hidden; }
 
+[data-testid="collapsedControl"] { display: none !important; }
+section[data-testid="stSidebar"] { transform: none !important; min-width: 240px !important; }
+
 .block-container {
     padding-top: 1.2rem;
     padding-bottom: 2.5rem;
@@ -422,8 +425,8 @@ st.markdown('<div class="section-header">Subject Information</div>', unsafe_allo
 with st.container():
     c1, c2 = st.columns(2)
     with c1:
-        full_name = st.text_input("Full name *", placeholder="Albert Bril")
-        city_region = st.text_input("City / Region *", placeholder="Bergentheim")
+        full_name = st.text_input("Full name *", placeholder="Daan Vermeulen")
+        city_region = st.text_input("City / Region *", placeholder="Amsterdam")
         context = st.text_input("Research context (optional)", placeholder="Mortgage application · €450,000")
     with c2:
         age = st.text_input("Age (optional)", placeholder="42")
