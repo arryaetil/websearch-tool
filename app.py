@@ -71,16 +71,68 @@ section[data-testid="stSidebar"] { transform: none !important; min-width: 240px 
     letter-spacing: 0.08em !important;
 }
 
-div[data-testid="stTextInput"] input {
-    background: rgba(255,255,255,0.02) !important;
-    color: white !important;
+/* ── Text input: cross-platform dark fix ─────────────────────────────────── */
+div[data-testid="stTextInput"] input,
+div[data-testid="stTextInput"] textarea,
+div[data-baseweb="input"] input,
+div[data-baseweb="textarea"] textarea {
+    background: #0d1a2e !important;
+    background-color: #0d1a2e !important;
+    color: #e8eef9 !important;
+    -webkit-text-fill-color: #e8eef9 !important;
     border: 1px solid #2b3d59 !important;
     border-radius: 12px !important;
     font-size: 0.93rem !important;
+    caret-color: #e8eef9 !important;
 }
-div[data-testid="stTextInput"] input:focus {
+
+/* Placeholder */
+div[data-testid="stTextInput"] input::placeholder,
+div[data-testid="stTextInput"] textarea::placeholder,
+div[data-baseweb="input"] input::placeholder {
+    color: #4f6a8f !important;
+    -webkit-text-fill-color: #4f6a8f !important;
+    opacity: 1 !important;
+}
+
+/* Focus state */
+div[data-testid="stTextInput"] input:focus,
+div[data-testid="stTextInput"] textarea:focus,
+div[data-baseweb="input"] input:focus {
     border-color: #2f80ff !important;
     box-shadow: 0 0 0 3px rgba(47,128,255,0.14) !important;
+    outline: none !important;
+}
+
+/* Browser autofill override (Chrome/Edge on Windows) */
+div[data-testid="stTextInput"] input:-webkit-autofill,
+div[data-testid="stTextInput"] input:-webkit-autofill:hover,
+div[data-testid="stTextInput"] input:-webkit-autofill:focus,
+div[data-baseweb="input"] input:-webkit-autofill {
+    -webkit-box-shadow: 0 0 0 1000px #0d1a2e inset !important;
+    box-shadow: 0 0 0 1000px #0d1a2e inset !important;
+    -webkit-text-fill-color: #e8eef9 !important;
+    border: 1px solid #2b3d59 !important;
+    caret-color: #e8eef9 !important;
+}
+
+/* Input wrapper containers (prevent white parent background on Windows/Chrome) */
+div[data-baseweb="input"],
+div[data-baseweb="base-input"],
+div[data-testid="stTextInput"] > div {
+    background: #0d1a2e !important;
+    background-color: #0d1a2e !important;
+    border-color: transparent !important;
+}
+
+/* Disabled state */
+div[data-testid="stTextInput"] input:disabled,
+div[data-baseweb="input"] input:disabled {
+    background: #0a1524 !important;
+    background-color: #0a1524 !important;
+    color: #4f6a8f !important;
+    -webkit-text-fill-color: #4f6a8f !important;
+    opacity: 1 !important;
 }
 
 .stButton > button[kind="primary"] {
