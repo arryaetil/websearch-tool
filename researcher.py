@@ -221,13 +221,13 @@ LEGAL_KEYWORDS = {
     "veroordeeld": "Conviction-related public record",
 }
 
-def build_prompt(name, city, age="", employer="", context=""):
+def build_prompt(name, city, age="", employer="", context="", extra_queries=None):
     parts = name.strip().split()
     first = parts[0] if parts else name
     last = parts[-1] if parts else name
     initial = f"{first[0]}. {last}" if first and last else name
 
-    return f"""
+    base = f"""
 Research this person using public web sources.
 
 Subject:
@@ -266,6 +266,13 @@ Output rules:
 - confidence_verdict must be exactly one of: Low, Moderate, High, Very High
 - Keep summaries concise and factual
 """.strip()
+
+    if extra_queries:
+        follow_up = "\n\nAdditional targeted follow-up searches based on prior findings:\n"
+        follow_up += "\n".join(f"- {q}" for q in extra_queries)
+        return base + follow_up
+
+    return base
 
 def fallback_report(name, city, error_message="Insufficient data found or API error."):
     return {
@@ -465,32 +472,191 @@ def dedupe_sources(sources: list) -> list:
 
     return cleaned[:10]
 
+def dedupe_items(items: list, key_fields: list) -> list:
+    """Deduplicate a list of dicts by a tuple of field values."""
+    seen = set()
+    unique = []
+    for item in items:
+        key = tuple(str(item.get(k, "")).strip().lower() for k in key_fields)
+        if key not in seen:
+            seen.add(key)
+            unique.append(item)
+    return unique
+
+
+def run_single_pass(client, name, city, age="", employer="", context="", extra_queries=None):
+    """Execute one OpenAI web-search pass and return a parsed report dict."""
+    response = client.responses.create(
+        model="gpt-5.4",
+        instructions=SYSTEM_PROMPT,
+        input=build_prompt(name, city, age, employer, context, extra_queries=extra_queries),
+        tools=[{"type": "web_search"}],
+        text={
+            "format": {
+                "type": "json_schema",
+                "name": "report",
+                "schema": SCHEMA,
+            }
+        },
+    )
+    return json.loads(response.output_text)
+
+
+def extract_followup_queries(result: dict, name: str, city: str) -> list:
+    """
+    Derive targeted follow-up search queries from an initial pass result.
+    Returns at most MAX_FOLLOWUPS deduplicated query strings.
+    """
+    queries = []
+
+    # Companies from professional profiles
+    for profile in result.get("professional_profiles", []):
+        company = (profile.get("company") or "").strip()
+        if company and company.lower() not in ("unknown", "—", ""):
+            queries.append(f'"{name}" "{company}"')
+
+    # Entities from business records
+    for biz in result.get("business_records", []):
+        entity = (biz.get("entity") or "").strip()
+        if entity and entity.lower() not in ("unknown", "—", ""):
+            queries.append(f'"{name}" "{entity}" bestuurder OR directeur OR aansprakelijk')
+
+    # Legal-record-driven deep dives
+    for rec in result.get("legal_public_records", []):
+        issue = (rec.get("issue_type") or "").lower()
+        if any(k in issue for k in ("bankruptcy", "faillissement", "insolvency")):
+            queries.append(f'"{name}" faillissement curator rechtbank')
+        if any(k in issue for k in ("fraud", "fiod", "tax")):
+            queries.append(f'"{name}" FIOD fraude belastingfraude veroordeeld')
+        if any(k in issue for k in ("liability", "court", "vonnis")):
+            queries.append(f'"{name}" aansprakelijk vonnis rechtbank civiel')
+
+    # Unsearched name variations
+    for variant in result.get("name_variations_searched", []):
+        if variant and variant.strip().lower() != name.strip().lower():
+            queries.append(f'"{variant}" "{city}"')
+
+    # Deduplicate and cap
+    seen: set = set()
+    unique = []
+    for q in queries:
+        if q not in seen:
+            seen.add(q)
+            unique.append(q)
+
+    return unique
+
+
+def merge_reports(reports: list) -> dict:
+    """
+    Merge multiple pass result dicts into one combined report.
+    List fields are concatenated then deduplicated.
+    The highest confidence_score across passes wins.
+    """
+    if not reports:
+        return {}
+    if len(reports) == 1:
+        return reports[0]
+
+    merged = reports[0]
+
+    for report in reports[1:]:
+        merged["identity_matches"] = dedupe_items(
+            merged.get("identity_matches", []) + report.get("identity_matches", []),
+            ["name", "description"],
+        )
+        merged["professional_profiles"] = dedupe_items(
+            merged.get("professional_profiles", []) + report.get("professional_profiles", []),
+            ["platform", "role", "company"],
+        )
+        merged["media_mentions"] = dedupe_items(
+            merged.get("media_mentions", []) + report.get("media_mentions", []),
+            ["title", "source"],
+        )
+        merged["legal_public_records"] = dedupe_items(
+            merged.get("legal_public_records", []) + report.get("legal_public_records", []),
+            ["issue_type", "source", "summary"],
+        )
+        merged["business_records"] = dedupe_items(
+            merged.get("business_records", []) + report.get("business_records", []),
+            ["entity", "role"],
+        )
+        merged["social_media_presence"] = dedupe_items(
+            merged.get("social_media_presence", []) + report.get("social_media_presence", []),
+            ["platform", "description"],
+        )
+        merged["risk_flags"] = dedupe_items(
+            merged.get("risk_flags", []) + report.get("risk_flags", []),
+            ["category", "description"],
+        )
+        merged["sources"] = dedupe_items(
+            merged.get("sources", []) + report.get("sources", []),
+            ["url"],
+        )
+        merged["name_variations_searched"] = list({
+            v for v in
+            merged.get("name_variations_searched", []) + report.get("name_variations_searched", [])
+            if v
+        })
+
+        # Take the higher confidence score and its associated verdict/reasoning
+        if report.get("confidence_score", 0) > merged.get("confidence_score", 0):
+            merged["confidence_score"] = report["confidence_score"]
+            merged["confidence_verdict"] = report.get("confidence_verdict", merged.get("confidence_verdict"))
+            merged["confidence_reasoning"] = report.get("confidence_reasoning", merged.get("confidence_reasoning"))
+
+    return merged
+
+
 def run_research(api_key, name, city, age="", employer="", context=""):
+    MAX_PASSES = 3
+    MAX_FOLLOWUPS = 5
+
     try:
         client = OpenAI(api_key=api_key)
+        pass_results = []
 
-        response = client.responses.create(
-            model="gpt-5.4",
-            instructions=SYSTEM_PROMPT,
-            input=build_prompt(name, city, age, employer, context),
-            tools=[{"type": "web_search"}],
-            text={
-                "format": {
-                    "type": "json_schema",
-                    "name": "report",
-                    "schema": SCHEMA
-                }
-            }
-        )
+        # ── Pass 1: broad initial search ──────────────────────────────────────
+        result1 = run_single_pass(client, name, city, age, employer, context)
+        pass_results.append(result1)
 
-        result = json.loads(response.output_text)
+        pending_queries = extract_followup_queries(result1, name, city)[:MAX_FOLLOWUPS]
 
-        # Filter only the model-returned sources for relevance.
-        model_sources = []
-        for src in result.get("sources", []):
-            if is_relevant_source(src.get("url", ""), name, city):
-                model_sources.append(src)
+        # ── Passes 2–3: targeted follow-up searches ───────────────────────────
+        for pass_num in range(2, MAX_PASSES + 1):
+            if not pending_queries:
+                break
 
+            # Spread remaining queries evenly across remaining passes
+            remaining_passes = MAX_PASSES - pass_num + 1
+            batch_size = max(1, len(pending_queries) // remaining_passes)
+            batch, pending_queries = pending_queries[:batch_size], pending_queries[batch_size:]
+
+            try:
+                result_n = run_single_pass(
+                    client, name, city, age, employer, context,
+                    extra_queries=batch,
+                )
+                pass_results.append(result_n)
+
+                # Surface any new follow-up clues from this pass
+                new_queries = extract_followup_queries(result_n, name, city)
+                for q in new_queries:
+                    if q not in pending_queries and len(pending_queries) < MAX_FOLLOWUPS:
+                        pending_queries.append(q)
+
+            except Exception:
+                # A failed follow-up pass is non-fatal; continue with what we have
+                continue
+
+        # ── Merge all passes ──────────────────────────────────────────────────
+        result = merge_reports(pass_results)
+
+        # ── Post-processing (unchanged) ───────────────────────────────────────
+        model_sources = [
+            src for src in result.get("sources", [])
+            if is_relevant_source(src.get("url", ""), name, city)
+        ]
         result["sources"] = dedupe_sources(model_sources)
         result = clean_report(result)
         result = derive_legal_public_records(result)
