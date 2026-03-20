@@ -525,10 +525,9 @@ if run_btn:
         st.error("Full name and city/region are required.")
         st.stop()
 
-    with st.status("Running public-source research...", expanded=True) as status:
-        st.write("🔎 Identity resolution and profile matching...")
-        st.write("🏢 Professional, business, and public records...")
-        st.write("📰 Media and legal/adverse public records...")
+    with st.status("Searching the web...", expanded=True) as status:
+        st.write(f"🔎 Searching for **{full_name}** · {city_region}...")
+        st.write("🌐 Following leads across public sources — this may take a moment.")
         result, error = run_research(
             api_key=api_key,
             name=full_name,
