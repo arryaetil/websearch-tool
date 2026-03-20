@@ -177,13 +177,22 @@ def build_prompt(name, city, age="", employer="", context=""):
         extras.append(f"Context: {context}")
     extra_str = "\n".join(f"- {e}" for e in extras)
 
+    last_initial = f"{last[0]}." if last else ""
+    first_initial = f"{first[0]}." if first else ""
+    abbrev_last = f"{first} {last_initial}"       # e.g. "Albert B."  — Dutch media/court convention
+    abbrev_first = f"{first_initial} {last}"      # e.g. "A. Bril"    — formal Dutch abbreviation
+
     return f"""
 Search for everything publicly available about this person.
 
 Name: {name}
-Also try: {initial} · {first} {last}
+Also try: {initial} · {abbrev_last} · {abbrev_first} · {first} {last}
 Location: {city}
 {extra_str}
+
+Important: Dutch news articles, court records, and fraud reporting often use partial names
+like "{abbrev_last}" or "{abbrev_first}" instead of the full name. Always search these
+abbreviated forms — they are the same person and often lead to the most relevant findings.
 
 Search freely. Start broad, then follow every relevant lead you find —
 companies, news articles, court records, LinkedIn profiles, business registries,
