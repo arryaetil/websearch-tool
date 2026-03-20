@@ -504,45 +504,120 @@ def run_single_pass(client, name, city, age="", employer="", context="", extra_q
 
 def extract_followup_queries(result: dict, name: str, city: str) -> list:
     """
-    Derive targeted follow-up search queries from an initial pass result.
-    Returns at most MAX_FOLLOWUPS deduplicated query strings.
+    Produce a ranked, high-signal set of follow-up search queries derived from
+    an initial pass result.  Queries are ordered by expected relevance:
+      1. Legal / adverse (highest signal)
+      2. Name + entity/company + role keyword
+      3. Name + city + legal terms
+      4. Name variant + city (lowest priority, only if variant is meaningfully different)
+
+    Returns at most 5 deduplicated queries.
     """
-    queries = []
+    MAX = 5
+    _SKIP = {"unknown", "—", "", "-"}
 
-    # Companies from professional profiles
-    for profile in result.get("professional_profiles", []):
-        company = (profile.get("company") or "").strip()
-        if company and company.lower() not in ("unknown", "—", ""):
-            queries.append(f'"{name}" "{company}"')
+    def _clean(v):
+        return (v or "").strip()
 
-    # Entities from business records
-    for biz in result.get("business_records", []):
-        entity = (biz.get("entity") or "").strip()
-        if entity and entity.lower() not in ("unknown", "—", ""):
-            queries.append(f'"{name}" "{entity}" bestuurder OR directeur OR aansprakelijk')
+    def _skip(v):
+        return not v or v.lower() in _SKIP
 
-    # Legal-record-driven deep dives
-    for rec in result.get("legal_public_records", []):
-        issue = (rec.get("issue_type") or "").lower()
-        if any(k in issue for k in ("bankruptcy", "faillissement", "insolvency")):
-            queries.append(f'"{name}" faillissement curator rechtbank')
-        if any(k in issue for k in ("fraud", "fiod", "tax")):
-            queries.append(f'"{name}" FIOD fraude belastingfraude veroordeeld')
-        if any(k in issue for k in ("liability", "court", "vonnis")):
-            queries.append(f'"{name}" aansprakelijk vonnis rechtbank civiel')
+    # ── Collect signals from the result ───────────────────────────────────────
+    companies = []
+    for p in result.get("professional_profiles", []):
+        c = _clean(p.get("company"))
+        if not _skip(c):
+            companies.append(c)
+    for b in result.get("business_records", []):
+        e = _clean(b.get("entity"))
+        if not _skip(e):
+            companies.append(e)
 
-    # Unsearched name variations
-    for variant in result.get("name_variations_searched", []):
-        if variant and variant.strip().lower() != name.strip().lower():
-            queries.append(f'"{variant}" "{city}"')
+    legal_records = result.get("legal_public_records", [])
 
-    # Deduplicate and cap
+    def _legal_text(rec):
+        """Return the searchable text for a single legal record."""
+        return " ".join([
+            (rec.get("issue_type") or ""),
+            (rec.get("summary") or ""),
+        ]).lower()
+
+    _legal_blob = " ".join(_legal_text(r) for r in legal_records)
+
+    has_legal      = bool(legal_records)
+    has_insolvency = any(k in _legal_blob for k in (
+        "faillissement", "bankruptcy", "insolvency", "curator", "insolvent"
+    ))
+    has_fraud      = any(k in _legal_blob for k in (
+        "fraud", "fraude", "fiod", "belastingfraude", "veroordeeld"
+    ))
+    has_liability  = any(k in _legal_blob for k in (
+        "aansprakelijk", "liable", "vonnis", "civiel"
+    ))
+    risk_flags = result.get("risk_flags", [])
+    high_risk = any((f.get("severity") or "").lower() == "high" for f in risk_flags)
+
+    variants = [
+        v for v in result.get("name_variations_searched", [])
+        if v and v.strip().lower() != name.strip().lower()
+    ]
+
+    # ── Build ranked candidate list ───────────────────────────────────────────
+    # Tier 1 — legal / adverse (highest signal, generated first)
+    candidates = []
+
+    if has_insolvency or high_risk:
+        # Name + city + insolvency (Dutch + English)
+        candidates.append(
+            f'"{name}" "{city}" faillissement OR bankruptcy OR curator OR insolvent'
+        )
+
+    if has_fraud or high_risk:
+        # Name + city + fraud (Dutch + English)
+        candidates.append(
+            f'"{name}" "{city}" fraude OR fraud OR FIOD OR belastingfraude OR veroordeeld'
+        )
+
+    if has_liability:
+        candidates.append(
+            f'"{name}" "{city}" aansprakelijk OR liable OR vonnis OR "court ruling"'
+        )
+
+    if has_legal and not has_insolvency and not has_fraud and not has_liability:
+        # Generic legal follow-up when we know there's something but can't classify it yet
+        candidates.append(
+            f'"{name}" "{city}" rechtbank OR court OR rechtspraak OR tribunal'
+        )
+
+    # Tier 2 — name + company/entity + role/legal keyword
+    for company in companies[:2]:                        # cap at 2 entities to avoid dilution
+        if has_fraud or high_risk:
+            candidates.append(f'"{name}" "{company}" fraude OR fraud OR aansprakelijk OR liable')
+        elif has_insolvency:
+            candidates.append(f'"{name}" "{company}" faillissement OR bankruptcy OR curator')
+        else:
+            candidates.append(f'"{name}" "{company}" bestuurder OR directeur OR eigenaar OR director')
+
+    # Tier 3 — name + city + professional context (only if no strong legal signal)
+    if not has_legal and not high_risk and companies:
+        candidates.append(
+            f'"{name}" "{city}" LinkedIn OR KVK OR bedrijf OR onderneming OR company'
+        )
+
+    # Tier 4 — name variant + city (lowest priority)
+    for variant in variants[:1]:                         # at most one variant query
+        candidates.append(f'"{variant}" "{city}" -site:wikipedia.org')
+
+    # ── Deduplicate and return top MAX ────────────────────────────────────────
     seen: set = set()
     unique = []
-    for q in queries:
-        if q not in seen:
-            seen.add(q)
+    for q in candidates:
+        q_norm = q.strip().lower()
+        if q_norm not in seen:
+            seen.add(q_norm)
             unique.append(q)
+        if len(unique) == MAX:
+            break
 
     return unique
 
