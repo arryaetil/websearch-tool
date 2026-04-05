@@ -1,9 +1,10 @@
 import json
 import os
+from pathlib import Path
 from openai import OpenAI
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(Path(__file__).parent / ".env")
 
 SYSTEM_PROMPT = """You are an identity research assistant for a financial compliance team.
 
