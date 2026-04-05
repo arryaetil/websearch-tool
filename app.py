@@ -8,7 +8,7 @@ st.set_page_config(
     page_title="KYCX · Adverse Media Check",
     page_icon="🔎",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 # ── Styles ─────────────────────────────────────────────────────────────────────
@@ -416,38 +416,6 @@ div[data-testid="stExpander"] {
 </style>
 """, unsafe_allow_html=True)
 
-# ── Sidebar ───────────────────────────────────────────────────────────────────
-with st.sidebar:
-    st.markdown("""
-    <div style='padding:0.2rem 0 1.3rem 0;border-bottom:1px solid #113157;margin-bottom:1.15rem;text-align:center'>
-        <div style='font-family:Georgia,serif;font-size:2.05rem;font-weight:700;color:white;letter-spacing:.04em'>KYC<span style='color:#62a8ff'>X</span></div>
-        <div style='font-size:0.72rem;color:#79a9df;letter-spacing:.14em;text-transform:uppercase;margin-top:2px'>Adverse Media Check</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    api_key = st.text_input("OpenAI API Key", type="password")
-
-    st.markdown("""
-    <div style='margin-top:1.45rem;padding-top:1rem;border-top:1px solid #153153'>
-        <div style='font-size:0.72rem;color:#7cb3ff;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.65rem'>System</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("<div style='font-size:0.8rem;color:#cfe0fb'>🤖 Model: GPT-powered research</div>", unsafe_allow_html=True)
-    st.markdown("<div style='font-size:0.8rem;color:#cfe0fb;margin-top:5px'>🌐 Web intelligence enabled</div>", unsafe_allow_html=True)
-    st.markdown("<div style='font-size:0.8rem;color:#cfe0fb;margin-top:5px'>📋 Structured JSON output</div>", unsafe_allow_html=True)
-    st.markdown("<div style='font-size:0.8rem;color:#cfe0fb;margin-top:5px'>⚖️ Human review workflow</div>", unsafe_allow_html=True)
-
-    st.markdown("""
-    <div style='margin-top:1.4rem;padding:0.9rem;background:linear-gradient(135deg,rgba(22,199,132,0.18),rgba(22,199,132,0.10));border-radius:14px;border:1px solid rgba(22,199,132,0.28)'>
-        <div style='font-size:0.74rem;font-weight:800;color:#9df0c8;margin-bottom:5px'>● EU GDPR Aware</div>
-        <div style='font-size:0.74rem;color:#d6ffea;line-height:1.5'>
-            Audit log active<br>
-            Human review required<br>
-            Public-source only
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
 
 # ── Header ────────────────────────────────────────────────────────────────────
 st.markdown("""
@@ -517,10 +485,6 @@ def verdict_color(score: int) -> str:
 
 # ── Run research ──────────────────────────────────────────────────────────────
 if run_btn:
-    if not api_key:
-        st.error("Please enter your OpenAI API key in the sidebar.")
-        st.stop()
-
     if not full_name or not city_region:
         st.error("Full name and city/region are required.")
         st.stop()
@@ -529,7 +493,6 @@ if run_btn:
         st.write(f"🔎 Searching for **{full_name}** · {city_region}...")
         st.write("🌐 Following leads across public sources — this may take a moment.")
         result, error = run_research(
-            api_key=api_key,
             name=full_name,
             city=city_region,
             age=age,

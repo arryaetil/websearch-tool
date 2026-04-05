@@ -1,5 +1,9 @@
 import json
+import os
 from openai import OpenAI
+from dotenv import load_dotenv
+
+load_dotenv()
 
 SYSTEM_PROMPT = """You are an identity research assistant for a financial compliance team.
 
@@ -267,9 +271,9 @@ def clean_report(result: dict) -> dict:
     return result
 
 
-def run_research(api_key, name, city, age="", employer="", context=""):
+def run_research(name, city, age="", employer="", context=""):
     try:
-        client = OpenAI(api_key=api_key)
+        client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
         response = client.responses.create(
             model="gpt-5.1",
