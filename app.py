@@ -173,12 +173,15 @@ div[data-testid="stExpander"] {
         linear-gradient(135deg, rgba(9,24,43,0.98) 0%, rgba(11,24,43,0.98) 100%);
     border: 1px solid #1b3356;
     border-radius: 20px;
-    padding: 1.35rem 1.6rem;
+    padding: 0 1.6rem 0 0;
     margin-bottom: 1.2rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
     box-shadow: var(--card-shadow);
+    position: relative;
+    overflow: hidden;
+    min-height: 80px;
 }
 
 .hero-title {
@@ -427,10 +430,20 @@ st.markdown(f"""
 <div class="kycx-header">
     <img
         src="data:image/jpeg;base64,{_logo_b64}"
-        style="height:50px;width:auto;mix-blend-mode:lighten;display:block"
+        style="
+            position: absolute;
+            left: 0; top: 0;
+            height: 100%;
+            width: auto;
+            object-fit: cover;
+            mix-blend-mode: lighten;
+            display: block;
+            margin: 0; padding: 0; border-radius: 0;
+        "
         alt="KYCX logo"
     />
-    <div class="top-pill">
+    <div style="flex:1"></div>
+    <div class="top-pill" style="position:relative;z-index:1">
         <span style="width:8px;height:8px;border-radius:50%;background:#16c784;display:inline-block"></span>
         System online
     </div>
