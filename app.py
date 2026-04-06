@@ -443,7 +443,6 @@ st.markdown(f"""
             height: 100%;
             width: auto;
             object-fit: cover;
-            mix-blend-mode: lighten;
             display: block;
             margin: 0; padding: 0;
             border: none; outline: none; box-shadow: none;
