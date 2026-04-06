@@ -181,7 +181,14 @@ div[data-testid="stExpander"] {
     box-shadow: var(--card-shadow);
     position: relative;
     overflow: hidden;
-    min-height: 80px;
+    isolation: isolate;
+    min-height: 70px;
+}
+
+.kycx-header img {
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
 }
 
 .hero-title {
@@ -438,7 +445,9 @@ st.markdown(f"""
             object-fit: cover;
             mix-blend-mode: lighten;
             display: block;
-            margin: 0; padding: 0; border-radius: 0;
+            margin: 0; padding: 0;
+            border: none; outline: none; box-shadow: none;
+            border-radius: 0;
         "
         alt="KYCX logo"
     />
