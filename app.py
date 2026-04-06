@@ -1,5 +1,7 @@
 import streamlit as st
 import json
+import base64
+from pathlib import Path
 from datetime import datetime
 from researcher import run_research
 from pdf_export import generate_pdf
@@ -418,12 +420,16 @@ div[data-testid="stExpander"] {
 
 
 # ── Header ────────────────────────────────────────────────────────────────────
-st.markdown("""
+_logo_path = Path(__file__).parent / "KYC_logo.jpg"
+_logo_b64 = base64.b64encode(_logo_path.read_bytes()).decode()
+
+st.markdown(f"""
 <div class="kycx-header">
-    <div>
-        <div class="hero-title">Adverse Media Check</div>
-        <div class="hero-sub">AI-powered KYC screening · public-source intelligence · analyst review workflow</div>
-    </div>
+    <img
+        src="data:image/jpeg;base64,{_logo_b64}"
+        style="height:50px;width:auto;mix-blend-mode:lighten;display:block"
+        alt="KYCX logo"
+    />
     <div class="top-pill">
         <span style="width:8px;height:8px;border-radius:50%;background:#16c784;display:inline-block"></span>
         System online
