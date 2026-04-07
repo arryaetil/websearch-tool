@@ -168,9 +168,7 @@ div[data-testid="stExpander"] {
 }
 
 .kycx-header {
-    background:
-        radial-gradient(circle at top right, rgba(47,128,255,0.18), transparent 36%),
-        linear-gradient(135deg, rgba(9,24,43,0.98) 0%, rgba(11,24,43,0.98) 100%);
+    background: linear-gradient(to right, #0a1f4e 0%, #041830 40%, #020c1b 100%);
     border: 1px solid #1b3356;
     border-radius: 20px;
     padding: 0 1.6rem 0 0;
