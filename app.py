@@ -182,7 +182,7 @@ div[data-testid="stExpander"] {
     position: relative;
     overflow: hidden;
     isolation: isolate;
-    min-height: 70px;
+    min-height: 100px;
 }
 
 .kycx-header img {
@@ -480,7 +480,7 @@ with st.container():
         employer = st.text_input("Employer (optional)", placeholder="ING Bank")
         analyst_name = st.text_input("Analyst name (audit log)", placeholder="Your name")
 
-    run_btn = st.button("🔎 Run Identity Research", type="primary", use_container_width=True)
+    run_btn = st.button("Get to know your customer", type="primary", use_container_width=True)
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 def render_data_items(items, title_key, sub_keys=None, url_key=None):
@@ -542,13 +542,6 @@ if run_btn:
             "context": context
         }, ensure_ascii=False) + "\\n")
 
-    st.markdown("""
-    <div class="notice info">
-        👁 <strong>Human review required.</strong>
-        This report was generated from public sources only. A qualified analyst must review all findings before any decision is made.
-    </div>
-    """, unsafe_allow_html=True)
-
     # ── Title row ─────────────────────────────────────────────────────────────
     t1, t2 = st.columns([3, 2])
     with t1:
@@ -591,6 +584,30 @@ if run_btn:
             f"<div style='margin-bottom:1rem'><div class='section-header' style='margin-bottom:0.4rem'>Searched Variations</div>{chips}</div>",
             unsafe_allow_html=True
         )
+
+    # ── Risk flags ────────────────────────────────────────────────────────────
+    st.markdown('<div style="height:1rem"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">🚨 Risk Flags</div>', unsafe_allow_html=True)
+
+    flags = result.get("risk_flags", [])
+    if not flags:
+        st.success("✓ No risk flags identified.")
+    else:
+        for f in flags:
+            sev = (f.get("severity") or "low").lower()
+            box_class = "flag-high" if sev == "high" else "flag-medium" if sev == "medium" else "flag-low"
+            icon = "⛔" if sev == "high" else "⚠️" if sev == "medium" else "ℹ️"
+            st.markdown(
+                f"""
+                <div class="flag-box {box_class}">
+                    <div class="flag-head">{icon} [{sev.upper()}] {f.get("category", "")}</div>
+                    <div class="di-sub" style="font-size:0.83rem;color:#d7e5fb">{f.get("description", "")}</div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+    st.markdown('</div>', unsafe_allow_html=True)
 
     # ── Grid layout ───────────────────────────────────────────────────────────
     col_l, col_r = st.columns(2)
@@ -653,30 +670,6 @@ if run_btn:
         render_data_items(result.get("legal_public_records", []), "issue_type", ["date", "summary"], "source"),
         unsafe_allow_html=True
     )
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    # ── Risk flags ────────────────────────────────────────────────────────────
-    st.markdown('<div style="height:1rem"></div>', unsafe_allow_html=True)
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-header">🚨 Risk Flags</div>', unsafe_allow_html=True)
-
-    flags = result.get("risk_flags", [])
-    if not flags:
-        st.success("✓ No risk flags identified.")
-    else:
-        for f in flags:
-            sev = (f.get("severity") or "low").lower()
-            box_class = "flag-high" if sev == "high" else "flag-medium" if sev == "medium" else "flag-low"
-            icon = "⛔" if sev == "high" else "⚠️" if sev == "medium" else "ℹ️"
-            st.markdown(
-                f"""
-                <div class="flag-box {box_class}">
-                    <div class="flag-head">{icon} [{sev.upper()}] {f.get("category", "")}</div>
-                    <div class="di-sub" style="font-size:0.83rem;color:#d7e5fb">{f.get("description", "")}</div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
     st.markdown('</div>', unsafe_allow_html=True)
 
     # ── Sources ───────────────────────────────────────────────────────────────
