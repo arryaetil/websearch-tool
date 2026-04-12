@@ -202,8 +202,10 @@ def build_prompt(name, city, age="", employer="", context=""):
         # first + initials of middle last parts + final last name, e.g. "Edwin K. Schaars"
         middle_initials = " ".join(p[0] + "." for p in last_parts[:-1])
         first_mid_last = f"{first} {middle_initials} {last}"
+        first_plus_last_initials = f"{first} {last_initials}"  # e.g. "Edwin K.S."
 
         variations += [
+            first_plus_last_initials,
             first_last_only,
             first_initial_full_last,
             all_initials,
