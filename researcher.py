@@ -293,9 +293,14 @@ def run_deep_research(name, city, age="", employer="", context=""):
                 {"role": "system", "content": SYSTEM_PROMPT + schema_instruction},
                 {"role": "user", "content": build_prompt(name, city, age, employer, context)},
             ],
+            stream=False,
         )
 
-        result = json.loads(response.choices[0].message.content)
+        raw_content = response.choices[0].message.content
+        print(f"[DEBUG] Perplexity raw response: {raw_content!r}")
+        if not raw_content or not raw_content.strip():
+            return fallback_report(name, city, "Perplexity returned empty response"), "Empty response from Perplexity"
+        result = json.loads(raw_content)
         result["sources"] = dedupe_sources(result.get("sources", []))
         result = clean_report(result)
 
