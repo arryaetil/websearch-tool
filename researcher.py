@@ -293,7 +293,6 @@ def run_deep_research(name, city, age="", employer="", context=""):
                 {"role": "system", "content": SYSTEM_PROMPT + schema_instruction},
                 {"role": "user", "content": build_prompt(name, city, age, employer, context)},
             ],
-            response_format={"type": "json_object"},
         )
 
         result = json.loads(response.choices[0].message.content)
