@@ -171,8 +171,8 @@ SCHEMA = {
 def build_prompt(name, city, age="", employer="", context=""):
     parts = name.strip().split()
     first = parts[0] if parts else name
-    last_parts = parts[1:] if len(parts) > 1 else [parts[0]]
-    last = last_parts[-1]
+    last  = parts[-1] if parts else name
+    initial = f"{first[0]}. {last}" if first and last else name
 
     extras = []
     if age:
@@ -183,50 +183,16 @@ def build_prompt(name, city, age="", employer="", context=""):
         extras.append(f"Context: {context}")
     extra_str = "\n".join(f"- {e}" for e in extras)
 
-    first_initial = f"{first[0]}." if first else ""
     last_initial = f"{last[0]}." if last else ""
-
-    # Base variations (always generated)
-    abbrev_last = f"{first} {last_initial}"       # e.g. "Edwin S."  — Dutch media/court convention
-    abbrev_first = f"{first_initial} {last}"      # e.g. "E. Schaars" — formal Dutch abbreviation
-    initial = f"{first_initial} {last}"
-
-    variations = [name, abbrev_last, abbrev_first]
-
-    # Compound last name variations (2+ last name parts)
-    if len(last_parts) >= 2:
-        last_initials = "".join(p[0] + "." for p in last_parts)  # e.g. "K.S."
-        all_initials = f"{first[0]}.{last_initials}"              # e.g. "E.K.S."
-        first_last_only = f"{first} {last}"                       # e.g. "Edwin Schaars"
-        first_initial_full_last = f"{first_initial} {' '.join(last_parts)}"  # e.g. "E. Kleine Schaars"
-        # first + initials of middle last parts + final last name, e.g. "Edwin K. Schaars"
-        middle_initials = " ".join(p[0] + "." for p in last_parts[:-1])
-        first_mid_last = f"{first} {middle_initials} {last}"
-        first_plus_last_initials = f"{first} {last_initials}"  # e.g. "Edwin K.S."
-
-        variations += [
-            first_plus_last_initials,
-            first_last_only,
-            first_initial_full_last,
-            all_initials,
-            first_mid_last,
-        ]
-
-    # Deduplicate while preserving order
-    seen = set()
-    unique_variations = []
-    for v in variations:
-        if v not in seen:
-            seen.add(v)
-            unique_variations.append(v)
-
-    also_try = " · ".join(unique_variations)
+    first_initial = f"{first[0]}." if first else ""
+    abbrev_last = f"{first} {last_initial}"       # e.g. "Albert B."  — Dutch media/court convention
+    abbrev_first = f"{first_initial} {last}"      # e.g. "A. Bril"    — formal Dutch abbreviation
 
     return f"""
 Search for everything publicly available about this person.
 
 Name: {name}
-Also try: {also_try}
+Also try: {initial} · {abbrev_last} · {abbrev_first} · {first} {last}
 Location: {city}
 {extra_str}
 
@@ -283,8 +249,8 @@ def clean_report(result: dict) -> dict:
     caps = {
         "identity_matches": 5,
         "professional_profiles": 5,
-        "media_mentions": 5,
-        "legal_public_records": 5,
+        "media_mentions": 10,
+        "legal_public_records": 10,
         "business_records": 5,
         "social_media_presence": 5,
         "risk_flags": 5,
@@ -341,7 +307,6 @@ def run_deep_research(name, city, age="", employer="", context=""):
         )
 
         raw_content = response.choices[0].message.content
-        print(f"[DEBUG] Perplexity raw response: {raw_content!r}")
         if not raw_content or not raw_content.strip():
             return fallback_report(name, city, "Perplexity returned empty response"), "Empty response from Perplexity"
         result = parse_response(raw_content)
