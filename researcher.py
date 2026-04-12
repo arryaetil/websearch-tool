@@ -171,7 +171,8 @@ SCHEMA = {
 def build_prompt(name, city, age="", employer="", context=""):
     parts = name.strip().split()
     first = parts[0] if parts else name
-    last  = parts[-1] if parts else name
+    last_parts = parts[1:] if len(parts) > 1 else [parts[0]]
+    last  = last_parts[-1]
     initial = f"{first[0]}. {last}" if first and last else name
 
     extras = []
@@ -188,6 +189,18 @@ def build_prompt(name, city, age="", employer="", context=""):
     abbrev_last = f"{first} {last_initial}"       # e.g. "Albert B."  — Dutch media/court convention
     abbrev_first = f"{first_initial} {last}"      # e.g. "A. Bril"    — formal Dutch abbreviation
 
+    # Compound last name handling
+    compound_note = ""
+    if len(last_parts) >= 2:
+        last_initials = "".join(p[0] + "." for p in last_parts)  # e.g. "K.S."
+        first_plus_last_initials = f"{first} {last_initials}"    # e.g. "Edwin K.S."
+        compound_note = f"""
+Dutch newspapers (De Stentor, AD, Tubantia etc.) often abbreviate compound last names \
+to initials in court and crime reporting. For example '{name}' becomes \
+'{first_plus_last_initials}' — search explicitly for these abbreviated forms combined \
+with the city name. If you find an abbreviated match from the same city and approximate \
+age, treat it as a likely match and include it."""
+
     return f"""
 Search for everything publicly available about this person.
 
@@ -199,7 +212,7 @@ Location: {city}
 Important: Dutch news articles, court records, and fraud reporting often use partial names
 like "{abbrev_last}" or "{abbrev_first}" instead of the full name. Always search these
 abbreviated forms — they are the same person and often lead to the most relevant findings.
-
+{compound_note}
 Search freely. Start broad, then follow every relevant lead you find —
 companies, news articles, court records, LinkedIn profiles, business registries,
 social media, adverse media, insolvency records, anything public.
