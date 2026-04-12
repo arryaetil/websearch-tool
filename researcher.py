@@ -273,6 +273,16 @@ def clean_report(result: dict) -> dict:
     return result
 
 
+def parse_response(raw):
+    import re
+    cleaned = re.sub(r"```(?:json)?", "", raw).strip()
+    cleaned = cleaned.replace("```", "").strip()
+    match = re.search(r"\{[\s\S]*\}", cleaned)
+    if not match:
+        raise ValueError("No JSON found in response")
+    return json.loads(match.group(0))
+
+
 def run_deep_research(name, city, age="", employer="", context=""):
     try:
         try:
@@ -300,7 +310,7 @@ def run_deep_research(name, city, age="", employer="", context=""):
         print(f"[DEBUG] Perplexity raw response: {raw_content!r}")
         if not raw_content or not raw_content.strip():
             return fallback_report(name, city, "Perplexity returned empty response"), "Empty response from Perplexity"
-        result = json.loads(raw_content)
+        result = parse_response(raw_content)
         result["sources"] = dedupe_sources(result.get("sources", []))
         result = clean_report(result)
 
