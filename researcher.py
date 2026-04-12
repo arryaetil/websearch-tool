@@ -1,5 +1,6 @@
 import json
 import os
+import streamlit as st
 from pathlib import Path
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -270,6 +271,39 @@ def clean_report(result: dict) -> dict:
             result["confidence_verdict"] = "Low"
 
     return result
+
+
+def run_deep_research(name, city, age="", employer="", context=""):
+    try:
+        try:
+            api_key = st.secrets["PERPLEXITY_API_KEY"]
+        except Exception:
+            api_key = os.environ.get("PERPLEXITY_API_KEY")
+
+        client = OpenAI(api_key=api_key, base_url="https://api.perplexity.ai")
+
+        schema_instruction = (
+            "\n\nYou MUST respond with a single valid JSON object that strictly conforms to this schema:\n"
+            + json.dumps(SCHEMA, indent=2)
+        )
+
+        response = client.chat.completions.create(
+            model="sonar-deep-research",
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT + schema_instruction},
+                {"role": "user", "content": build_prompt(name, city, age, employer, context)},
+            ],
+            response_format={"type": "json_object"},
+        )
+
+        result = json.loads(response.choices[0].message.content)
+        result["sources"] = dedupe_sources(result.get("sources", []))
+        result = clean_report(result)
+
+        return result, None
+
+    except Exception as e:
+        return fallback_report(name, city, str(e)), str(e)
 
 
 def run_research(name, city, age="", employer="", context=""):

@@ -3,7 +3,7 @@ import json
 import base64
 from pathlib import Path
 from datetime import datetime
-from researcher import run_research
+from researcher import run_research, run_deep_research
 from pdf_export import generate_pdf
 
 st.set_page_config(
@@ -480,7 +480,11 @@ with st.container():
         employer = st.text_input("Employer (optional)", placeholder="ING Bank")
         analyst_name = st.text_input("Analyst name (audit log)", placeholder="Your name")
 
-    run_btn = st.button("Get to know your customer", type="primary", use_container_width=True)
+    btn_col1, btn_col2 = st.columns(2)
+    with btn_col1:
+        run_btn = st.button("Get to know your customer", type="primary", use_container_width=True)
+    with btn_col2:
+        deep_btn = st.button("Deep Scan", type="primary", use_container_width=True)
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 def render_data_items(items, title_key, sub_keys=None, url_key=None):
@@ -510,38 +514,7 @@ def verdict_color(score: int) -> str:
         return "#f59e0b"
     return "#ef4444"
 
-# ── Run research ──────────────────────────────────────────────────────────────
-if run_btn:
-    if not full_name or not city_region:
-        st.error("Full name and city/region are required.")
-        st.stop()
-
-    with st.status("Searching the web...", expanded=True) as status:
-        st.write(f"🔎 Searching for **{full_name}** · {city_region}...")
-        st.write("🌐 Following leads across public sources — this may take a moment.")
-        result, error = run_research(
-            name=full_name,
-            city=city_region,
-            age=age,
-            employer=employer,
-            context=context
-        )
-
-        if error:
-            status.update(label=f"Error: {error}", state="error")
-            st.stop()
-
-        status.update(label="Research complete!", state="complete")
-
-    with open("audit_log.jsonl", "a", encoding="utf-8") as f:
-        f.write(json.dumps({
-            "timestamp": datetime.now().isoformat(),
-            "analyst": analyst_name or "unknown",
-            "subject_name": full_name,
-            "subject_city": city_region,
-            "context": context
-        }, ensure_ascii=False) + "\\n")
-
+def display_results(result, full_name, city_region, analyst_name):
     # ── Title row ─────────────────────────────────────────────────────────────
     t1, t2 = st.columns([3, 2])
     with t1:
@@ -725,3 +698,74 @@ if run_btn:
 
     with st.expander("📄 View raw JSON"):
         st.json(result)
+
+# ── Run research ──────────────────────────────────────────────────────────────
+if run_btn:
+    if not full_name or not city_region:
+        st.error("Full name and city/region are required.")
+        st.stop()
+
+    with st.status("Searching the web...", expanded=True) as status:
+        st.write(f"🔎 Searching for **{full_name}** · {city_region}...")
+        st.write("🌐 Following leads across public sources — this may take a moment.")
+        result, error = run_research(
+            name=full_name,
+            city=city_region,
+            age=age,
+            employer=employer,
+            context=context
+        )
+
+        if error:
+            status.update(label=f"Error: {error}", state="error")
+            st.stop()
+
+        status.update(label="Research complete!", state="complete")
+
+    with open("audit_log.jsonl", "a", encoding="utf-8") as f:
+        f.write(json.dumps({
+            "timestamp": datetime.now().isoformat(),
+            "analyst": analyst_name or "unknown",
+            "subject_name": full_name,
+            "subject_city": city_region,
+            "context": context
+        }, ensure_ascii=False) + "\\n")
+
+    display_results(result, full_name, city_region, analyst_name)
+
+# ── Deep Scan ─────────────────────────────────────────────────────────────────
+if deep_btn:
+    if not full_name or not city_region:
+        st.error("Full name and city/region are required.")
+        st.stop()
+
+    st.warning("🔬 Deep Scan uses Perplexity Sonar Deep Research and typically takes **2–5 minutes**. Please wait.")
+
+    with st.status("Running deep research...", expanded=True) as status:
+        st.write(f"🔬 Deep scanning **{full_name}** · {city_region}...")
+        st.write("🌐 Following every lead across public sources — this takes longer than a Quick Scan.")
+        result, error = run_deep_research(
+            name=full_name,
+            city=city_region,
+            age=age,
+            employer=employer,
+            context=context
+        )
+
+        if error:
+            status.update(label=f"Error: {error}", state="error")
+            st.stop()
+
+        status.update(label="Deep research complete!", state="complete")
+
+    with open("audit_log.jsonl", "a", encoding="utf-8") as f:
+        f.write(json.dumps({
+            "timestamp": datetime.now().isoformat(),
+            "analyst": analyst_name or "unknown",
+            "subject_name": full_name,
+            "subject_city": city_region,
+            "context": context,
+            "scan_type": "deep"
+        }, ensure_ascii=False) + "\\n")
+
+    display_results(result, full_name, city_region, analyst_name)
