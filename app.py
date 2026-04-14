@@ -476,7 +476,7 @@ with st.container():
         city_region = st.text_input("City / Region *", placeholder="Amsterdam")
         context = st.text_input("Research context (optional)", placeholder="Mortgage application · €450,000")
     with c2:
-        age = st.text_input("Age (optional)", placeholder="42")
+        age = st.text_input("Date of birth (optional)", placeholder="e.g. 15-03-1978")
         employer = st.text_input("Employer (optional)", placeholder="ING Bank")
         analyst_name = st.text_input("Analyst name (audit log)", placeholder="Your name")
 
@@ -586,54 +586,49 @@ def display_results(result, full_name, city_region, analyst_name):
     col_l, col_r = st.columns(2)
 
     with col_l:
-        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        st.markdown('<div class="section-header">👤 Identity Matches</div>', unsafe_allow_html=True)
-        st.markdown(
-            render_data_items(result.get("identity_matches", []), "name", ["description", "confidence"]),
-            unsafe_allow_html=True
-        )
+        with st.expander("👤 Identity Matches"):
+            st.markdown(
+                render_data_items(result.get("identity_matches", []), "name", ["description", "confidence"]),
+                unsafe_allow_html=True
+            )
 
-        st.markdown('<div class="section-header" style="margin-top:1rem">💼 Professional Profiles</div>', unsafe_allow_html=True)
-        st.markdown(
-            render_data_items(result.get("professional_profiles", []), "role", ["company", "platform"], "url_hint"),
-            unsafe_allow_html=True
-        )
+        with st.expander("💼 Professional Profiles"):
+            st.markdown(
+                render_data_items(result.get("professional_profiles", []), "role", ["company", "platform"], "url_hint"),
+                unsafe_allow_html=True
+            )
 
-        st.markdown('<div class="section-header" style="margin-top:1rem">🏢 Business Records</div>', unsafe_allow_html=True)
-        st.markdown(
-            render_data_items(result.get("business_records", []), "entity", ["role", "status"], "source"),
-            unsafe_allow_html=True
-        )
-        st.markdown('</div>', unsafe_allow_html=True)
+        with st.expander("🏢 Business Records"):
+            st.markdown(
+                render_data_items(result.get("business_records", []), "entity", ["role", "status"], "source"),
+                unsafe_allow_html=True
+            )
 
     with col_r:
-        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        st.markdown('<div class="section-header">📰 Media Mentions</div>', unsafe_allow_html=True)
+        with st.expander("📰 Media Mentions"):
+            media = result.get("media_mentions", [])
+            if media:
+                for m in media:
+                    sentiment = (m.get("sentiment") or "").lower()
+                    icon = {"positive": "🟢", "neutral": "⚪", "negative": "🔴"}.get(sentiment, "⚪")
+                    st.markdown(
+                        f"""
+                        <div class="data-item">
+                            <div class="di-title">{icon} {m.get("title", "—")}</div>
+                            <div class="di-sub">{m.get("source", "")} · {m.get("date", "")} · {m.get("sentiment", "")}</div>
+                            <div class="di-sub">{m.get("summary", "")}</div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+            else:
+                st.markdown('<div class="empty-state">Insufficient data</div>', unsafe_allow_html=True)
 
-        media = result.get("media_mentions", [])
-        if media:
-            for m in media:
-                sentiment = (m.get("sentiment") or "").lower()
-                icon = {"positive": "🟢", "neutral": "⚪", "negative": "🔴"}.get(sentiment, "⚪")
-                st.markdown(
-                    f"""
-                    <div class="data-item">
-                        <div class="di-title">{icon} {m.get("title", "—")}</div>
-                        <div class="di-sub">{m.get("source", "")} · {m.get("date", "")} · {m.get("sentiment", "")}</div>
-                        <div class="di-sub">{m.get("summary", "")}</div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-        else:
-            st.markdown('<div class="empty-state">Insufficient data</div>', unsafe_allow_html=True)
-
-        st.markdown('<div class="section-header" style="margin-top:1rem">🌐 Social Media Presence</div>', unsafe_allow_html=True)
-        st.markdown(
-            render_data_items(result.get("social_media_presence", []), "platform", ["description"]),
-            unsafe_allow_html=True
-        )
-        st.markdown('</div>', unsafe_allow_html=True)
+        with st.expander("🌐 Social Media"):
+            st.markdown(
+                render_data_items(result.get("social_media_presence", []), "platform", ["description"]),
+                unsafe_allow_html=True
+            )
 
     # ── Legal records ─────────────────────────────────────────────────────────
     st.markdown('<div style="height:1rem"></div>', unsafe_allow_html=True)
@@ -647,28 +642,25 @@ def display_results(result, full_name, city_region, analyst_name):
 
     # ── Sources ───────────────────────────────────────────────────────────────
     st.markdown('<div style="height:1rem"></div>', unsafe_allow_html=True)
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-header">🔗 Sources</div>', unsafe_allow_html=True)
-
-    sources = result.get("sources", [])
-    if sources:
-        for s in sources:
-            url = s.get("url", "#")
-            name = s.get("name", url)
-            stype = s.get("type", "web")
-            st.markdown(
-                f"""
-                <a class="source-link" href="{url}" target="_blank">
-                    <div class="source-title">{name}</div>
-                    <div class="source-url">{url}</div>
-                    <span class="source-tag">{stype}</span>
-                </a>
-                """,
-                unsafe_allow_html=True
-            )
-    else:
-        st.markdown('<div class="empty-state">No sources recorded.</div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+    with st.expander("🔗 Sources"):
+        sources = result.get("sources", [])
+        if sources:
+            for s in sources:
+                url = s.get("url", "#")
+                name = s.get("name", url)
+                stype = s.get("type", "web")
+                st.markdown(
+                    f"""
+                    <a class="source-link" href="{url}" target="_blank">
+                        <div class="source-title">{name}</div>
+                        <div class="source-url">{url}</div>
+                        <span class="source-tag">{stype}</span>
+                    </a>
+                    """,
+                    unsafe_allow_html=True
+                )
+        else:
+            st.markdown('<div class="empty-state">No sources recorded.</div>', unsafe_allow_html=True)
 
     # ── Export ────────────────────────────────────────────────────────────────
     st.divider()
@@ -696,7 +688,7 @@ def display_results(result, full_name, city_region, analyst_name):
             use_container_width=True
         )
 
-    with st.expander("📄 View raw JSON"):
+    with st.expander("📄 Raw JSON"):
         st.json(result)
 
 # ── Run research ──────────────────────────────────────────────────────────────
