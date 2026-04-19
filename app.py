@@ -438,15 +438,12 @@ st.markdown(f"""
     <img
         src="data:image/png;base64,{_logo_b64}"
         style="
-            position: absolute;
-            left: 0; top: 0;
-            height: 100%;
+            height: 70px;
             width: auto;
-            object-fit: cover;
             display: block;
-            margin: 0; padding: 0;
+            margin: 0 1rem;
+            background: transparent;
             border: none; outline: none; box-shadow: none;
-            border-radius: 0;
         "
         alt="KYCX logo"
     />
