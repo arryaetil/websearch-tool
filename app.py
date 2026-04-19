@@ -191,8 +191,8 @@ div[data-testid="stExpander"] {
     box-shadow: none !important;
     background: transparent !important;
 }
-.kycx-header * {
-    background: transparent !important;
+.kycx-header .led-dot {
+    background: #16c784 !important;
 }
 
 .hero-title {
@@ -442,7 +442,7 @@ st.markdown(f"""
     <img
         src="data:image/png;base64,{_logo_b64}"
         style="
-            height: 70px;
+            height: 110px;
             width: auto;
             display: block;
             margin: 0 1rem;
@@ -453,7 +453,7 @@ st.markdown(f"""
     />
     <div style="flex:1"></div>
     <div class="top-pill" style="position:relative;z-index:1">
-        <span style="width:8px;height:8px;border-radius:50%;background:#16c784;display:inline-block"></span>
+        <span class="led-dot" style="width:8px;height:8px;border-radius:50%;background:#16c784;display:inline-block"></span>
         System online
     </div>
 </div>
