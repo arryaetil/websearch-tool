@@ -661,29 +661,17 @@ def display_results(result, full_name, city_region, analyst_name):
 
     # ── Export ────────────────────────────────────────────────────────────────
     st.divider()
-    ex1, ex2 = st.columns(2)
-
-    with ex1:
-        try:
-            pdf_bytes = generate_pdf(result, full_name, city_region, analyst_name)
-            st.download_button(
-                label="⬇️ Download PDF report",
-                data=pdf_bytes,
-                file_name=f"report_{full_name.replace(' ','_')}_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
-                mime="application/pdf",
-                use_container_width=True
-            )
-        except Exception as e:
-            st.warning(f"PDF generation failed: {e}")
-
-    with ex2:
+    try:
+        pdf_bytes = generate_pdf(result, full_name, city_region, analyst_name)
         st.download_button(
-            label="⬇️ Download JSON",
-            data=json.dumps(result, indent=2, ensure_ascii=False),
-            file_name=f"report_{full_name.replace(' ','_')}_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
-            mime="application/json",
+            label="⬇️ Download PDF report",
+            data=pdf_bytes,
+            file_name=f"report_{full_name.replace(' ','_')}_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+            mime="application/pdf",
             use_container_width=True
         )
+    except Exception as e:
+        st.warning(f"PDF generation failed: {e}")
 
 # ── Run research ──────────────────────────────────────────────────────────────
 if run_btn:
