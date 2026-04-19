@@ -631,15 +631,11 @@ def display_results(result, full_name, city_region, analyst_name):
                 unsafe_allow_html=True
             )
 
-    # ── Legal records ─────────────────────────────────────────────────────────
-    st.markdown('<div style="height:1rem"></div>', unsafe_allow_html=True)
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-header">⚖️ Legal Public Records</div>', unsafe_allow_html=True)
-    st.markdown(
-        render_data_items(result.get("legal_public_records", []), "issue_type", ["date", "summary"], "source"),
-        unsafe_allow_html=True
-    )
-    st.markdown('</div>', unsafe_allow_html=True)
+        with st.expander("⚖️ Legal Public Records"):
+            st.markdown(
+                render_data_items(result.get("legal_public_records", []), "issue_type", ["date", "summary"], "source"),
+                unsafe_allow_html=True
+            )
 
     # ── Sources ───────────────────────────────────────────────────────────────
     st.markdown('<div style="height:1rem"></div>', unsafe_allow_html=True)
@@ -688,9 +684,6 @@ def display_results(result, full_name, city_region, analyst_name):
             mime="application/json",
             use_container_width=True
         )
-
-    with st.expander("📄 Raw JSON"):
-        st.json(result)
 
 # ── Run research ──────────────────────────────────────────────────────────────
 if run_btn:
