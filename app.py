@@ -434,7 +434,7 @@ div[data-testid="stExpander"] {
 
 
 # ── Header ────────────────────────────────────────────────────────────────────
-_logo_path = Path(__file__).parent / "KYC_logo_transparent.png"
+_logo_path = Path(__file__).parent / "KYC_logo_official.png"
 _logo_b64 = base64.b64encode(_logo_path.read_bytes()).decode()
 
 st.markdown(f"""
