@@ -189,6 +189,10 @@ div[data-testid="stExpander"] {
     border: none !important;
     outline: none !important;
     box-shadow: none !important;
+    background: transparent !important;
+}
+.kycx-header * {
+    background: transparent !important;
 }
 
 .hero-title {
