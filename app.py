@@ -430,13 +430,13 @@ div[data-testid="stExpander"] {
 
 
 # ── Header ────────────────────────────────────────────────────────────────────
-_logo_path = Path(__file__).parent / "KYC_logo.jpg"
+_logo_path = Path(__file__).parent / "KYC_logo.png"
 _logo_b64 = base64.b64encode(_logo_path.read_bytes()).decode()
 
 st.markdown(f"""
 <div class="kycx-header">
     <img
-        src="data:image/jpeg;base64,{_logo_b64}"
+        src="data:image/png;base64,{_logo_b64}"
         style="
             position: absolute;
             left: 0; top: 0;
