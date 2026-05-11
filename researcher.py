@@ -7,6 +7,216 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).parent / ".env")
 
+# ── Company research ──────────────────────────────────────────────────────────
+
+COMPANY_SYSTEM_PROMPT = """You are a neutral business intelligence researcher.
+
+Search the web thoroughly and return objective, factual information about the requested company.
+
+Rules:
+- Use public sources only. Do not speculate or invent facts.
+- Search in Dutch and English.
+- Be objective and factual. Do not frame findings as risks or flags.
+- Follow leads: if you find subsidiaries, search them. If you find key executives, note them.
+- If information is uncertain or unavailable, say so clearly.
+- Include sources for all findings.
+"""
+
+COMPANY_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "company_profile": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "name": {"type": "string"},
+                "legal_form": {"type": "string"},
+                "founded": {"type": "string"},
+                "sector": {"type": "string"},
+                "size": {"type": "string"},
+                "description": {"type": "string"},
+                "website": {"type": "string"},
+                "kvk_number": {"type": "string"},
+                "address": {"type": "string"}
+            },
+            "required": ["name", "legal_form", "founded", "sector", "size", "description", "website", "kvk_number", "address"]
+        },
+        "directors_shareholders": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "name": {"type": "string"},
+                    "role": {"type": "string"},
+                    "since": {"type": "string"},
+                    "notes": {"type": "string"}
+                },
+                "required": ["name", "role", "since", "notes"]
+            }
+        },
+        "financials": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "year": {"type": "string"},
+                    "revenue": {"type": "string"},
+                    "profit": {"type": "string"},
+                    "employees": {"type": "string"},
+                    "source": {"type": "string"}
+                },
+                "required": ["year", "revenue", "profit", "employees", "source"]
+            }
+        },
+        "group_structure": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "entity": {"type": "string"},
+                    "relationship": {"type": "string"},
+                    "country": {"type": "string"},
+                    "notes": {"type": "string"}
+                },
+                "required": ["entity", "relationship", "country", "notes"]
+            }
+        },
+        "news_media": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "title": {"type": "string"},
+                    "source": {"type": "string"},
+                    "date": {"type": "string"},
+                    "summary": {"type": "string"},
+                    "url": {"type": "string"}
+                },
+                "required": ["title", "source", "date", "summary", "url"]
+            }
+        },
+        "key_people": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "name": {"type": "string"},
+                    "role": {"type": "string"},
+                    "description": {"type": "string"}
+                },
+                "required": ["name", "role", "description"]
+            }
+        },
+        "sources": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "name": {"type": "string"},
+                    "url": {"type": "string"},
+                    "type": {"type": "string"}
+                },
+                "required": ["name", "url", "type"]
+            }
+        }
+    },
+    "required": [
+        "company_profile",
+        "directors_shareholders",
+        "financials",
+        "group_structure",
+        "news_media",
+        "key_people",
+        "sources"
+    ]
+}
+
+
+def build_company_prompt(company_name, country="", kvk="", sector="", context=""):
+    extras = []
+    if country:
+        extras.append(f"Country/Region: {country}")
+    if kvk:
+        extras.append(f"KvK number: {kvk}")
+    if sector:
+        extras.append(f"Sector: {sector}")
+    if context:
+        extras.append(f"Context: {context}")
+    extra_str = "\n".join(f"- {e}" for e in extras)
+
+    return f"""
+Search for comprehensive, objective information about this company.
+
+Company: {company_name}
+{extra_str}
+
+Search freely. Cover:
+- Basic profile: legal form, founding date, sector, size, registered address, website, KvK number
+- Directors and shareholders (current and historical if notable)
+- Financial data: revenue, profit, employee count from annual reports or public filings
+- Group structure: parent companies, subsidiaries, affiliated entities
+- News and media coverage (factual, chronological)
+- Key people: executives, board members, notable figures
+- Any other relevant public information
+
+Use Dutch and English sources. Include KvK/Chamber of Commerce, company website, LinkedIn, news archives, and annual reports.
+""".strip()
+
+
+def fallback_company_report(company_name, error_message="Insufficient data found or API error."):
+    return {
+        "company_profile": {
+            "name": company_name,
+            "legal_form": "Unknown",
+            "founded": "Unknown",
+            "sector": "Unknown",
+            "size": "Unknown",
+            "description": error_message,
+            "website": "",
+            "kvk_number": "",
+            "address": ""
+        },
+        "directors_shareholders": [],
+        "financials": [],
+        "group_structure": [],
+        "news_media": [],
+        "key_people": [],
+        "sources": []
+    }
+
+
+def run_company_research(company_name, country="", kvk="", sector="", context=""):
+    try:
+        client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+
+        response = client.responses.create(
+            model="gpt-5.1",
+            instructions=COMPANY_SYSTEM_PROMPT,
+            input=build_company_prompt(company_name, country, kvk, sector, context),
+            tools=[{"type": "web_search"}],
+            text={
+                "format": {
+                    "type": "json_schema",
+                    "name": "company_report",
+                    "schema": COMPANY_SCHEMA,
+                }
+            },
+        )
+
+        result = json.loads(response.output_text)
+        result["sources"] = dedupe_sources(result.get("sources", []))
+        return result, None
+
+    except Exception as e:
+        return fallback_company_report(company_name, str(e)), str(e)
+
 SYSTEM_PROMPT = """You are an identity research assistant for a financial compliance team.
 
 Search the web freely and thoroughly — the same way a skilled investigator would

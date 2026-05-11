@@ -3,7 +3,7 @@ import json
 import base64
 from pathlib import Path
 from datetime import datetime
-from researcher import run_research, run_deep_research
+from researcher import run_research, run_deep_research, run_company_research
 from pdf_export import generate_pdf
 
 st.set_page_config(
@@ -467,10 +467,12 @@ All results require human analyst review. Do not use without a valid legal basis
 </div>
 """, unsafe_allow_html=True)
 
-# ── Input form ────────────────────────────────────────────────────────────────
-st.markdown('<div class="section-header">Subject Information</div>', unsafe_allow_html=True)
+# ── Tabs ──────────────────────────────────────────────────────────────────────
+tab_person, tab_company = st.tabs(["👤 Person Check", "🏢 Company Research"])
 
-with st.container():
+# ── Person tab ────────────────────────────────────────────────────────────────
+with tab_person:
+    st.markdown('<div class="section-header">Subject Information</div>', unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1:
         full_name = st.text_input("Full name *", placeholder="Daan Vermeulen")
@@ -486,6 +488,21 @@ with st.container():
         run_btn = st.button("Get to know your customer", type="primary", use_container_width=True)
     with btn_col2:
         deep_btn = st.button("Deep Scan", type="primary", use_container_width=True)
+
+# ── Company tab ───────────────────────────────────────────────────────────────
+with tab_company:
+    st.markdown('<div class="section-header">Company Information</div>', unsafe_allow_html=True)
+    cc1, cc2 = st.columns(2)
+    with cc1:
+        company_name = st.text_input("Company name *", placeholder="ASML Holding N.V.")
+        company_country = st.text_input("Country / Region *", placeholder="Netherlands")
+        company_context = st.text_input("Research context (optional)", placeholder="Partnership evaluation")
+    with cc2:
+        company_kvk = st.text_input("KvK number (optional)", placeholder="e.g. 27532543")
+        company_sector = st.text_input("Sector (optional)", placeholder="Technology · Semiconductors")
+        company_analyst = st.text_input("Analyst name (audit log)", placeholder="Your name", key="company_analyst")
+
+    company_run_btn = st.button("Research Company", type="primary", use_container_width=True)
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 def render_data_items(items, title_key, sub_keys=None, url_key=None):
@@ -673,6 +690,147 @@ def display_results(result, full_name, city_region, analyst_name):
     except Exception as e:
         st.warning(f"PDF generation failed: {e}")
 
+# ── Company results renderer ──────────────────────────────────────────────────
+def display_company_results(result, company_name, country, analyst_name):
+    profile = result.get("company_profile", {})
+
+    t1, t2 = st.columns([3, 2])
+    with t1:
+        st.markdown(f'<div class="report-title">{profile.get("name", company_name)}</div>', unsafe_allow_html=True)
+        if profile.get("sector"):
+            st.markdown(f'<div class="hero-sub">{profile.get("sector")} · {profile.get("legal_form", "")}</div>', unsafe_allow_html=True)
+    with t2:
+        st.markdown(
+            f'<div class="report-meta">Generated {datetime.now().strftime("%d %b %Y %H:%M")} · Analyst: {analyst_name or "—"}</div>',
+            unsafe_allow_html=True
+        )
+
+    st.markdown('<div class="subtle-divider"></div>', unsafe_allow_html=True)
+
+    # Profile card
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">🏢 Company Profile</div>', unsafe_allow_html=True)
+    fields = [
+        ("Founded", profile.get("founded")),
+        ("Legal form", profile.get("legal_form")),
+        ("Size", profile.get("size")),
+        ("KvK", profile.get("kvk_number")),
+        ("Address", profile.get("address")),
+        ("Website", profile.get("website")),
+    ]
+    for label, value in fields:
+        if value:
+            st.markdown(
+                f'<div class="data-item"><span style="color:#8aa0c4;font-size:0.78rem">{label}</span><div class="di-title" style="font-size:0.88rem">{value}</div></div>',
+                unsafe_allow_html=True
+            )
+    if profile.get("description"):
+        st.markdown(f'<div style="color:#c0d4f0;font-size:0.88rem;padding:0.5rem 0">{profile.get("description")}</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # Grid
+    col_l, col_r = st.columns(2)
+
+    with col_l:
+        with st.expander("👥 Directors & Shareholders"):
+            items = result.get("directors_shareholders", [])
+            if items:
+                for p in items:
+                    st.markdown(
+                        f'<div class="data-item"><div class="di-title">{p.get("name","—")}</div>'
+                        f'<div class="di-sub">{p.get("role","")} · Since {p.get("since","—")}</div>'
+                        f'<div class="di-sub">{p.get("notes","")}</div></div>',
+                        unsafe_allow_html=True
+                    )
+            else:
+                st.markdown('<div class="empty-state">No data found</div>', unsafe_allow_html=True)
+
+        with st.expander("💶 Financials"):
+            items = result.get("financials", [])
+            if items:
+                for f in items:
+                    st.markdown(
+                        f'<div class="data-item"><div class="di-title">{f.get("year","—")}</div>'
+                        f'<div class="di-sub">Revenue: {f.get("revenue","—")} · Profit: {f.get("profit","—")} · Employees: {f.get("employees","—")}</div>'
+                        f'<div class="di-url">{f.get("source","")}</div></div>',
+                        unsafe_allow_html=True
+                    )
+            else:
+                st.markdown('<div class="empty-state">No financial data found</div>', unsafe_allow_html=True)
+
+        with st.expander("🔗 Group Structure"):
+            items = result.get("group_structure", [])
+            if items:
+                for g in items:
+                    st.markdown(
+                        f'<div class="data-item"><div class="di-title">{g.get("entity","—")}</div>'
+                        f'<div class="di-sub">{g.get("relationship","")} · {g.get("country","")}</div>'
+                        f'<div class="di-sub">{g.get("notes","")}</div></div>',
+                        unsafe_allow_html=True
+                    )
+            else:
+                st.markdown('<div class="empty-state">No group structure data found</div>', unsafe_allow_html=True)
+
+    with col_r:
+        with st.expander("📰 News & Media"):
+            items = result.get("news_media", [])
+            if items:
+                for m in items:
+                    st.markdown(
+                        f'<div class="data-item"><div class="di-title">{m.get("title","—")}</div>'
+                        f'<div class="di-sub">{m.get("source","")} · {m.get("date","")}</div>'
+                        f'<div class="di-sub">{m.get("summary","")}</div>'
+                        f'<div class="di-url">{m.get("url","")}</div></div>',
+                        unsafe_allow_html=True
+                    )
+            else:
+                st.markdown('<div class="empty-state">No news found</div>', unsafe_allow_html=True)
+
+        with st.expander("🧑‍💼 Key People"):
+            items = result.get("key_people", [])
+            if items:
+                for k in items:
+                    st.markdown(
+                        f'<div class="data-item"><div class="di-title">{k.get("name","—")}</div>'
+                        f'<div class="di-sub">{k.get("role","")}</div>'
+                        f'<div class="di-sub">{k.get("description","")}</div></div>',
+                        unsafe_allow_html=True
+                    )
+            else:
+                st.markdown('<div class="empty-state">No key people found</div>', unsafe_allow_html=True)
+
+    st.markdown('<div style="height:1rem"></div>', unsafe_allow_html=True)
+    with st.expander("🔗 Sources"):
+        sources = result.get("sources", [])
+        if sources:
+            for s in sources:
+                url = s.get("url", "#")
+                name = s.get("name", url)
+                stype = s.get("type", "web")
+                st.markdown(
+                    f'<a class="source-link" href="{url}" target="_blank">'
+                    f'<div class="source-title">{name}</div>'
+                    f'<div class="source-url">{url}</div>'
+                    f'<span class="source-tag">{stype}</span></a>',
+                    unsafe_allow_html=True
+                )
+        else:
+            st.markdown('<div class="empty-state">No sources recorded.</div>', unsafe_allow_html=True)
+
+    st.divider()
+    try:
+        pdf_bytes = generate_pdf(result, profile.get("name", company_name), country, analyst_name)
+        st.download_button(
+            label="⬇️ Download PDF report",
+            data=pdf_bytes,
+            file_name=f"company_{company_name.replace(' ','_')}_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+            mime="application/pdf",
+            use_container_width=True
+        )
+    except Exception as e:
+        st.warning(f"PDF generation failed: {e}")
+
+
 # ── Run research ──────────────────────────────────────────────────────────────
 if run_btn:
     if not full_name or not city_region:
@@ -743,3 +901,38 @@ if deep_btn:
         }, ensure_ascii=False) + "\\n")
 
     display_results(result, full_name, city_region, analyst_name)
+
+# ── Company research run ───────────────────────────────────────────────────────
+if company_run_btn:
+    if not company_name or not company_country:
+        st.error("Company name and country/region are required.")
+        st.stop()
+
+    with st.status("Researching company...", expanded=True) as status:
+        st.write(f"🔎 Researching **{company_name}** · {company_country}...")
+        st.write("🌐 Gathering public information — this may take a moment.")
+        company_result, company_error = run_company_research(
+            company_name=company_name,
+            country=company_country,
+            kvk=company_kvk,
+            sector=company_sector,
+            context=company_context
+        )
+
+        if company_error:
+            status.update(label=f"Error: {company_error}", state="error")
+            st.stop()
+
+        status.update(label="Research complete!", state="complete")
+
+    with open("audit_log.jsonl", "a", encoding="utf-8") as f:
+        f.write(json.dumps({
+            "timestamp": datetime.now().isoformat(),
+            "analyst": company_analyst or "unknown",
+            "subject_name": company_name,
+            "subject_city": company_country,
+            "context": company_context,
+            "scan_type": "company"
+        }, ensure_ascii=False) + "\n")
+
+    display_company_results(company_result, company_name, company_country, company_analyst)
