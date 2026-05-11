@@ -659,20 +659,18 @@ def display_results(result, full_name, city_region, analyst_name):
     with st.expander("Sources", icon=":material/link:"):
         sources = result.get("sources", [])
         if sources:
+            html = ""
             for s in sources:
                 url = s.get("url", "#")
                 name = s.get("name", url)
                 stype = s.get("type", "web")
-                st.markdown(
-                    f"""
-                    <a class="source-link" href="{url}" target="_blank">
-                        <div class="source-title">{name}</div>
-                        <div class="source-url">{url}</div>
-                        <span class="source-tag">{stype}</span>
-                    </a>
-                    """,
-                    unsafe_allow_html=True
+                html += (
+                    f'<a class="source-link" href="{url}" target="_blank">'
+                    f'<div class="source-title">{name}</div>'
+                    f'<div class="source-url">{url}</div>'
+                    f'<span class="source-tag">{stype}</span></a>'
                 )
+            st.markdown(html, unsafe_allow_html=True)
         else:
             st.markdown('<div class="empty-state">No sources recorded.</div>', unsafe_allow_html=True)
 
@@ -801,17 +799,18 @@ def display_company_results(result, company_name, country, analyst_name):
     with st.expander("Sources", icon=":material/link:"):
         sources = result.get("sources", [])
         if sources:
+            html = ""
             for s in sources:
                 url = s.get("url", "#")
                 name = s.get("name", url)
                 stype = s.get("type", "web")
-                st.markdown(
+                html += (
                     f'<a class="source-link" href="{url}" target="_blank">'
                     f'<div class="source-title">{name}</div>'
                     f'<div class="source-url">{url}</div>'
-                    f'<span class="source-tag">{stype}</span></a>',
-                    unsafe_allow_html=True
+                    f'<span class="source-tag">{stype}</span></a>'
                 )
+            st.markdown(html, unsafe_allow_html=True)
         else:
             st.markdown('<div class="empty-state">No sources recorded.</div>', unsafe_allow_html=True)
 
