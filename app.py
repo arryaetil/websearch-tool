@@ -3,8 +3,18 @@ import json
 import base64
 from pathlib import Path
 from datetime import datetime
+import re
 from researcher import run_research, run_deep_research, run_company_research
-from pdf_export import generate_pdf
+from pdf_export import generate_pdf, generate_company_pdf
+
+def clean_field(text):
+    """Strip inline markdown links and citation noise from model field values."""
+    if not text:
+        return text
+    s = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', str(text))  # [label](url) → label
+    s = re.sub(r'\(https?://\S+\)', '', s)                   # leftover (url) blobs
+    s = re.sub(r'\s{2,}', ' ', s).strip()
+    return s
 
 st.set_page_config(
     page_title="KYCX · Adverse Media Check",
@@ -718,39 +728,46 @@ def display_company_results(result, company_name, country, analyst_name):
                 ("Address", profile.get("address")),
                 ("Website", profile.get("website")),
             ]
+            html = ""
             for label, value in fields:
+                value = clean_field(value)
                 if value:
-                    st.markdown(
-                        f'<div class="data-item"><span style="color:#8aa0c4;font-size:0.78rem">{label}</span>'
-                        f'<div class="di-title" style="font-size:0.88rem">{value}</div></div>',
-                        unsafe_allow_html=True
+                    html += (
+                        f'<div class="data-item">'
+                        f'<span style="color:#8aa0c4;font-size:0.78rem">{label}</span>'
+                        f'<div class="di-title" style="font-size:0.88rem">{value}</div>'
+                        f'</div>'
                     )
-            if profile.get("description"):
-                st.markdown(f'<div style="color:#c0d4f0;font-size:0.88rem;padding:0.5rem 0">{profile.get("description")}</div>', unsafe_allow_html=True)
+            desc = clean_field(profile.get("description"))
+            if desc:
+                html += f'<div style="color:#c0d4f0;font-size:0.88rem;padding:0.5rem 0">{desc}</div>'
+            st.markdown(html or '<div class="empty-state">No profile data</div>', unsafe_allow_html=True)
 
         with st.expander("Directors & Shareholders", icon=":material/group:"):
             items = result.get("directors_shareholders", [])
             if items:
+                html = ""
                 for p in items:
-                    st.markdown(
-                        f'<div class="data-item"><div class="di-title">{p.get("name","—")}</div>'
-                        f'<div class="di-sub">{p.get("role","")} · Since {p.get("since","—")}</div>'
-                        f'<div class="di-sub">{p.get("notes","")}</div></div>',
-                        unsafe_allow_html=True
+                    html += (
+                        f'<div class="data-item"><div class="di-title">{clean_field(p.get("name","—"))}</div>'
+                        f'<div class="di-sub">{clean_field(p.get("role",""))} · Since {clean_field(p.get("since","—"))}</div>'
+                        f'<div class="di-sub">{clean_field(p.get("notes",""))}</div></div>'
                     )
+                st.markdown(html, unsafe_allow_html=True)
             else:
                 st.markdown('<div class="empty-state">No data found</div>', unsafe_allow_html=True)
 
         with st.expander("Financials", icon=":material/bar_chart:"):
             items = result.get("financials", [])
             if items:
+                html = ""
                 for f in items:
-                    st.markdown(
-                        f'<div class="data-item"><div class="di-title">{f.get("year","—")}</div>'
-                        f'<div class="di-sub">Revenue: {f.get("revenue","—")} · Profit: {f.get("profit","—")} · Employees: {f.get("employees","—")}</div>'
-                        f'<div class="di-url">{f.get("source","")}</div></div>',
-                        unsafe_allow_html=True
+                    html += (
+                        f'<div class="data-item"><div class="di-title">{clean_field(f.get("year","—"))}</div>'
+                        f'<div class="di-sub">Revenue: {clean_field(f.get("revenue","—"))} · Profit: {clean_field(f.get("profit","—"))} · Employees: {clean_field(f.get("employees","—"))}</div>'
+                        f'<div class="di-url">{clean_field(f.get("source",""))}</div></div>'
                     )
+                st.markdown(html, unsafe_allow_html=True)
             else:
                 st.markdown('<div class="empty-state">No financial data found</div>', unsafe_allow_html=True)
 
@@ -758,40 +775,43 @@ def display_company_results(result, company_name, country, analyst_name):
         with st.expander("Group Structure", icon=":material/account_tree:"):
             items = result.get("group_structure", [])
             if items:
+                html = ""
                 for g in items:
-                    st.markdown(
-                        f'<div class="data-item"><div class="di-title">{g.get("entity","—")}</div>'
-                        f'<div class="di-sub">{g.get("relationship","")} · {g.get("country","")}</div>'
-                        f'<div class="di-sub">{g.get("notes","")}</div></div>',
-                        unsafe_allow_html=True
+                    html += (
+                        f'<div class="data-item"><div class="di-title">{clean_field(g.get("entity","—"))}</div>'
+                        f'<div class="di-sub">{clean_field(g.get("relationship",""))} · {clean_field(g.get("country",""))}</div>'
+                        f'<div class="di-sub">{clean_field(g.get("notes",""))}</div></div>'
                     )
+                st.markdown(html, unsafe_allow_html=True)
             else:
                 st.markdown('<div class="empty-state">No group structure data found</div>', unsafe_allow_html=True)
 
         with st.expander("Key People", icon=":material/badge:"):
             items = result.get("key_people", [])
             if items:
+                html = ""
                 for k in items:
-                    st.markdown(
-                        f'<div class="data-item"><div class="di-title">{k.get("name","—")}</div>'
-                        f'<div class="di-sub">{k.get("role","")}</div>'
-                        f'<div class="di-sub">{k.get("description","")}</div></div>',
-                        unsafe_allow_html=True
+                    html += (
+                        f'<div class="data-item"><div class="di-title">{clean_field(k.get("name","—"))}</div>'
+                        f'<div class="di-sub">{clean_field(k.get("role",""))}</div>'
+                        f'<div class="di-sub">{clean_field(k.get("description",""))}</div></div>'
                     )
+                st.markdown(html, unsafe_allow_html=True)
             else:
                 st.markdown('<div class="empty-state">No key people found</div>', unsafe_allow_html=True)
 
         with st.expander("News & Media", icon=":material/newspaper:"):
             items = result.get("news_media", [])
             if items:
+                html = ""
                 for m in items:
-                    st.markdown(
-                        f'<div class="data-item"><div class="di-title">{m.get("title","—")}</div>'
-                        f'<div class="di-sub">{m.get("source","")} · {m.get("date","")}</div>'
-                        f'<div class="di-sub">{m.get("summary","")}</div>'
-                        f'<div class="di-url">{m.get("url","")}</div></div>',
-                        unsafe_allow_html=True
+                    html += (
+                        f'<div class="data-item"><div class="di-title">{clean_field(m.get("title","—"))}</div>'
+                        f'<div class="di-sub">{clean_field(m.get("source",""))} · {clean_field(m.get("date",""))}</div>'
+                        f'<div class="di-sub">{clean_field(m.get("summary",""))}</div>'
+                        f'<div class="di-url">{m.get("url","")}</div></div>'
                     )
+                st.markdown(html, unsafe_allow_html=True)
             else:
                 st.markdown('<div class="empty-state">No news found</div>', unsafe_allow_html=True)
 
@@ -816,7 +836,7 @@ def display_company_results(result, company_name, country, analyst_name):
 
     st.divider()
     try:
-        pdf_bytes = generate_pdf(result, profile.get("name", company_name), country, analyst_name)
+        pdf_bytes = generate_company_pdf(result, profile.get("name", company_name), country, analyst_name)
         st.download_button(
             label="⬇️ Download PDF report",
             data=pdf_bytes,

@@ -368,3 +368,150 @@ def generate_pdf(report, subject_name, subject_city, analyst=""):
  
     doc.build(story)
     return buf.getvalue()
+
+
+def generate_company_pdf(report, company_name, region, analyst=""):
+    import re
+
+    def cf(text):
+        if not text:
+            return "—"
+        s = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', str(text))
+        s = re.sub(r'\(https?://\S+\)', '', s)
+        return re.sub(r'\s{2,}', ' ', s).strip() or "—"
+
+    buf = BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=A4,
+        leftMargin=MARGIN, rightMargin=MARGIN,
+        topMargin=15*mm, bottomMargin=15*mm,
+        title=f"Company Report — {company_name}",
+    )
+
+    S = STYLES
+    now = datetime.now().strftime("%d %b %Y, %H:%M")
+    story = []
+
+    # ── Header ────────────────────────────────────────────────────────────────
+    header = Table(
+        [[
+            Paragraph("Etil  Company Research Report",
+                      ParagraphStyle("brand", fontSize=13, textColor=WHITE,
+                                     fontName="Helvetica-Bold")),
+            Paragraph(
+                f"<b>Company:</b> {company_name}<br/>"
+                f"<b>Region:</b> {region}<br/>"
+                f"<b>Analyst:</b> {analyst or '—'}<br/>"
+                f"<b>Date:</b> {now}",
+                ParagraphStyle("meta", fontSize=8, textColor=WHITE,
+                               fontName="Helvetica", alignment=TA_RIGHT,
+                               leading=13))
+        ]],
+        colWidths=[100*mm, 74*mm]
+    )
+    header.setStyle(TableStyle([
+        ("BACKGROUND",   (0, 0), (-1, -1), BLUE),
+        ("VALIGN",       (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING",  (0, 0), (0, 0),   8*mm),
+        ("RIGHTPADDING", (1, 0), (1, 0),   5*mm),
+        ("TOPPADDING",   (0, 0), (-1, -1), 5*mm),
+        ("BOTTOMPADDING",(0, 0), (-1, -1), 5*mm),
+    ]))
+    story.append(header)
+    story.append(Spacer(1, 4*mm))
+
+    story.append(Paragraph(
+        "For internal use only. Generated from public sources. Human review required before any decision.",
+        S["disc"]))
+    story.append(Spacer(1, 4*mm))
+
+    # ── Company Profile ───────────────────────────────────────────────────────
+    profile = report.get("company_profile", {})
+    story.append(p("Company Profile", "h2"))
+    profile_fields = [
+        ("Legal form",  cf(profile.get("legal_form"))),
+        ("Founded",     cf(profile.get("founded"))),
+        ("Sector",      cf(profile.get("sector"))),
+        ("Size",        cf(profile.get("size"))),
+        ("KvK number",  cf(profile.get("kvk_number"))),
+        ("Address",     cf(profile.get("address"))),
+        ("Website",     cf(profile.get("website"))),
+    ]
+    profile_rows = [[Paragraph(label, ParagraphStyle("pl", fontSize=8, textColor=GRAY, fontName="Helvetica")),
+                     Paragraph(value, ParagraphStyle("pv", fontSize=8.5, textColor=BLACK, fontName="Helvetica"))]
+                    for label, value in profile_fields if value != "—"]
+    if profile_rows:
+        pt = Table(profile_rows, colWidths=[38*mm, 136*mm])
+        pt.setStyle(TableStyle([
+            ("ROWBACKGROUNDS", (0, 0), (-1, -1), [WHITE, LIGHT_BG]),
+            ("GRID",           (0, 0), (-1, -1), 0.3, BORDER),
+            ("VALIGN",         (0, 0), (-1, -1), "TOP"),
+            ("TOPPADDING",     (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING",  (0, 0), (-1, -1), 4),
+            ("LEFTPADDING",    (0, 0), (-1, -1), 4),
+        ]))
+        story.append(pt)
+    desc = cf(profile.get("description"))
+    if desc != "—":
+        story.append(Spacer(1, 2*mm))
+        story.append(Paragraph(desc, S["body"]))
+    story.append(Spacer(1, 4*mm))
+
+    # ── Directors & Shareholders ───────────────────────────────────────────────
+    story.append(p("Directors & Shareholders", "h2"))
+    rows = [[cf(d.get("name")), cf(d.get("role")), cf(d.get("since")), cf(d.get("notes"))]
+            for d in report.get("directors_shareholders", [])]
+    story.append(make_table(["Name", "Role", "Since", "Notes"], rows,
+                            [44*mm, 36*mm, 20*mm, 74*mm]))
+    story.append(Spacer(1, 4*mm))
+
+    # ── Financials ────────────────────────────────────────────────────────────
+    story.append(p("Financials", "h2"))
+    rows = [[cf(f.get("year")), cf(f.get("revenue")), cf(f.get("profit")), cf(f.get("employees"))]
+            for f in report.get("financials", [])]
+    story.append(make_table(["Year", "Revenue", "Profit", "Employees"], rows,
+                            [20*mm, 48*mm, 48*mm, 58*mm]))
+    story.append(Spacer(1, 4*mm))
+
+    # ── Group Structure ───────────────────────────────────────────────────────
+    story.append(p("Group Structure", "h2"))
+    rows = [[cf(g.get("entity")), cf(g.get("relationship")), cf(g.get("country")), cf(g.get("notes"))]
+            for g in report.get("group_structure", [])]
+    story.append(make_table(["Entity", "Relationship", "Country", "Notes"], rows,
+                            [50*mm, 36*mm, 24*mm, 64*mm]))
+    story.append(Spacer(1, 4*mm))
+
+    # ── Key People ────────────────────────────────────────────────────────────
+    story.append(p("Key People", "h2"))
+    rows = [[cf(k.get("name")), cf(k.get("role")), cf(k.get("description"))]
+            for k in report.get("key_people", [])]
+    story.append(make_table(["Name", "Role", "Description"], rows,
+                            [44*mm, 36*mm, 94*mm]))
+    story.append(Spacer(1, 4*mm))
+
+    # ── News & Media ──────────────────────────────────────────────────────────
+    story.append(p("News & Media", "h2"))
+    rows = [[cf(m.get("title")), cf(m.get("source")), cf(m.get("date")), cf(m.get("summary"))]
+            for m in report.get("news_media", [])]
+    story.append(make_table(["Title", "Source", "Date", "Summary"], rows,
+                            [50*mm, 24*mm, 18*mm, 82*mm]))
+    story.append(Spacer(1, 4*mm))
+
+    # ── Sources ───────────────────────────────────────────────────────────────
+    story.append(p("Sources", "h2"))
+    rows = [[cf(s.get("name")), cf(s.get("url")), cf(s.get("type"))]
+            for s in report.get("sources", [])]
+    story.append(make_table(["Name", "URL", "Type"], rows,
+                            [40*mm, 112*mm, 22*mm]))
+    story.append(Spacer(1, 6*mm))
+
+    # ── Footer ────────────────────────────────────────────────────────────────
+    story.append(HRFlowable(width="100%", thickness=0.4, color=BORDER))
+    story.append(Spacer(1, 2*mm))
+    story.append(Paragraph(
+        f"Etil Company Research Tool · {now} · Analyst: {analyst or '—'} · CONFIDENTIAL",
+        S["foot"]
+    ))
+
+    doc.build(story)
+    return buf.getvalue()
