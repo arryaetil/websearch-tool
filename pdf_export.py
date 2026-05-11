@@ -425,8 +425,72 @@ def generate_company_pdf(report, company_name, region, analyst=""):
         S["disc"]))
     story.append(Spacer(1, 4*mm))
 
-    # ── Company Profile ───────────────────────────────────────────────────────
+    # ── Survey-ready fields ───────────────────────────────────────────────────
     profile = report.get("company_profile", {})
+    directors = report.get("directors_shareholders", [])
+    manager = cf(directors[0].get("name")) if directors else "—"
+    story.append(p("Werkgelegenheidsonderzoek — Direct Bruikbare Velden", "h2"))
+    survey_rows = [
+        ["Vestigingsadres",          cf(profile.get("address"))],
+        ["Rechtsvorm",               cf(profile.get("legal_form"))],
+        ["Sector",                   cf(profile.get("sector"))],
+        ["KvK-nummer",               cf(profile.get("kvk_number"))],
+        ["Directeur / manager",      manager],
+        ["Geschat aantal medewerkers", cf(profile.get("size"))],
+    ]
+    survey_rows = [[r[0], r[1]] for r in survey_rows if r[1] != "—"]
+    if survey_rows:
+        st_table = Table(
+            [[Paragraph(r[0], ParagraphStyle("sl", fontSize=8, textColor=GREEN, fontName="Helvetica-Bold")),
+              Paragraph(r[1], ParagraphStyle("sv", fontSize=8.5, textColor=BLACK, fontName="Helvetica"))]
+             for r in survey_rows],
+            colWidths=[52*mm, 122*mm]
+        )
+        st_table.setStyle(TableStyle([
+            ("BACKGROUND",    (0, 0), (-1, -1), colors.HexColor("#f0faf5")),
+            ("BOX",           (0, 0), (-1, -1), 0.5, GREEN),
+            ("GRID",          (0, 0), (-1, -1), 0.3, colors.HexColor("#c6eedd")),
+            ("VALIGN",        (0, 0), (-1, -1), "TOP"),
+            ("TOPPADDING",    (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 5),
+        ]))
+        story.append(st_table)
+    story.append(Spacer(1, 4*mm))
+
+    # ── Risk Flags ────────────────────────────────────────────────────────────
+    story.append(p("Risk Flags", "h2"))
+    flags = report.get("risk_flags", [])
+    if not flags:
+        story.append(Paragraph("✓ No risk flags identified.",
+                                ParagraphStyle("ok", fontSize=9, textColor=GREEN,
+                                               fontName="Helvetica-Bold")))
+    else:
+        for f in flags:
+            fg2, bg2 = sev_color(f.get("severity", "low"))
+            sev = f.get("severity", "low").upper()
+            cat = cf(f.get("category", ""))
+            desc = cf(f.get("description", ""))
+            flag_row = Table(
+                [[Paragraph(f"[{sev}]",
+                             ParagraphStyle("fs", fontSize=8, textColor=fg2, fontName="Helvetica-Bold")),
+                  Paragraph(f"<b>{cat}</b> — {wrap(desc, 120)}",
+                             ParagraphStyle("fd", fontSize=8.5, textColor=BLACK, leading=12))]],
+                colWidths=[20*mm, 154*mm]
+            )
+            flag_row.setStyle(TableStyle([
+                ("BACKGROUND",    (0, 0), (-1, -1), bg2),
+                ("BOX",           (0, 0), (-1, -1), 0.4, fg2),
+                ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+                ("LEFTPADDING",   (0, 0), (-1, -1), 4),
+                ("TOPPADDING",    (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ]))
+            story.append(flag_row)
+            story.append(Spacer(1, 2))
+    story.append(Spacer(1, 4*mm))
+
+    # ── Company Profile ───────────────────────────────────────────────────────
     story.append(p("Company Profile", "h2"))
     profile_fields = [
         ("Legal form",  cf(profile.get("legal_form"))),

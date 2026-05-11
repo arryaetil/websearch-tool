@@ -16,10 +16,12 @@ Search the web thoroughly and return objective, factual information about the re
 Rules:
 - Use public sources only. Do not speculate or invent facts.
 - Search in Dutch and English.
-- Be objective and factual. Do not frame findings as risks or flags.
+- Be objective and factual.
 - Follow leads: if you find subsidiaries, search them. If you find key executives, note them.
 - If information is uncertain or unavailable, say so clearly.
 - Include sources for all findings.
+- For risk_flags: only flag things that are factually documented in public sources (insolvency, sanctions, fraud, regulatory action, major legal disputes, significant negative press). Do not speculate. If nothing notable found, return an empty array.
+- Do NOT include inline URLs or markdown links inside field values. Put all source references in the sources array only.
 """
 
 COMPANY_SCHEMA = {
@@ -113,6 +115,19 @@ COMPANY_SCHEMA = {
                 "required": ["name", "role", "description"]
             }
         },
+        "risk_flags": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "severity": {"type": "string"},
+                    "category": {"type": "string"},
+                    "description": {"type": "string"}
+                },
+                "required": ["severity", "category", "description"]
+            }
+        },
         "sources": {
             "type": "array",
             "items": {
@@ -134,6 +149,7 @@ COMPANY_SCHEMA = {
         "group_structure",
         "news_media",
         "key_people",
+        "risk_flags",
         "sources"
     ]
 }
@@ -188,6 +204,7 @@ def fallback_company_report(company_name, error_message="Insufficient data found
         "group_structure": [],
         "news_media": [],
         "key_people": [],
+        "risk_flags": [],
         "sources": []
     }
 

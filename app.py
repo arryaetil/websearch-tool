@@ -728,6 +728,54 @@ def display_company_results(result, company_name, country, analyst_name):
 
     st.markdown('<div class="subtle-divider"></div>', unsafe_allow_html=True)
 
+    # ── Survey-ready card ─────────────────────────────────────────────────────
+    directors = result.get("directors_shareholders", [])
+    manager = clean_field(directors[0].get("name")) if directors else "—"
+    survey_fields = [
+        ("Vestigingsadres",     clean_field(profile.get("address")) or "—"),
+        ("Rechtsvorm",          clean_field(profile.get("legal_form")) or "—"),
+        ("Sector",              clean_field(profile.get("sector")) or "—"),
+        ("KvK-nummer",          clean_field(profile.get("kvk_number")) or "—"),
+        ("Directeur / manager", manager),
+        ("Geschat aantal medewerkers", clean_field(profile.get("size")) or "—"),
+    ]
+    survey_html = "".join(
+        f'<div style="display:flex;justify-content:space-between;align-items:baseline;padding:0.45rem 0;border-bottom:1px solid rgba(22,199,132,0.12)">'
+        f'<span style="color:#7ecfb0;font-size:0.76rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;min-width:220px">{label}</span>'
+        f'<span style="color:#e8eef9;font-size:0.87rem;text-align:right">{value}</span>'
+        f'</div>'
+        for label, value in survey_fields
+    )
+    st.markdown(
+        f'<div style="background:linear-gradient(135deg,rgba(22,199,132,0.07),rgba(22,199,132,0.03));'
+        f'border:1px solid rgba(22,199,132,0.22);border-radius:16px;padding:1rem 1.2rem;margin-bottom:1rem">'
+        f'<div style="font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.1em;color:#16c784;margin-bottom:0.6rem">Werkgelegenheidsonderzoek — direct bruikbare velden</div>'
+        f'{survey_html}</div>',
+        unsafe_allow_html=True
+    )
+
+    # ── Risk flags ────────────────────────────────────────────────────────────
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">Risk Flags</div>', unsafe_allow_html=True)
+    flags = result.get("risk_flags", [])
+    if not flags:
+        st.success("✓ No risk flags identified.")
+    else:
+        html = ""
+        for f in flags:
+            sev = (f.get("severity") or "low").lower()
+            box_class = "flag-high" if sev == "high" else "flag-medium" if sev == "medium" else "flag-low"
+            icon = "⛔" if sev == "high" else "⚠️" if sev == "medium" else "ℹ️"
+            html += (
+                f'<div class="flag-box {box_class}">'
+                f'<div class="flag-head">{icon} [{sev.upper()}] {clean_field(f.get("category", ""))}</div>'
+                f'<div class="di-sub" style="font-size:0.83rem;color:#d7e5fb">{clean_field(f.get("description", ""))}</div>'
+                f'</div>'
+            )
+        st.markdown(html, unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('<div style="height:0.5rem"></div>', unsafe_allow_html=True)
+
     # 3 × 3 grid
     col_l, col_r = st.columns(2)
 
