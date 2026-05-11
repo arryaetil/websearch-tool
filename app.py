@@ -515,6 +515,26 @@ with tab_company:
     company_run_btn = st.button("Research Company", type="primary", use_container_width=True)
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+def render_sources(sources):
+    if not sources:
+        return '<div class="empty-state">No sources recorded.</div>'
+    rows = ""
+    for s in sources:
+        url = s.get("url", "#")
+        name = s.get("name", url)
+        stype = s.get("type", "web")
+        rows += (
+            f'<div style="display:flex;align-items:flex-start;gap:0.9rem;padding:0.7rem 0;border-bottom:1px solid rgba(255,255,255,0.05)">'
+            f'<div style="flex:1;min-width:0">'
+            f'<a href="{url}" target="_blank" style="color:#6fb1ff;font-weight:600;font-size:0.86rem;text-decoration:none;word-break:break-word">{name}</a>'
+            f'<div style="color:#5a7299;font-size:0.72rem;margin-top:3px;word-break:break-all;line-height:1.4">{url}</div>'
+            f'</div>'
+            f'<span style="flex-shrink:0;background:rgba(47,128,255,0.10);color:#9fc8ff;border:1px solid rgba(47,128,255,0.22);border-radius:999px;padding:3px 9px;font-size:0.7rem;white-space:nowrap">{stype}</span>'
+            f'</div>'
+        )
+    return f'<div style="padding:0 0.1rem">{rows}</div>'
+
+
 def render_data_items(items, title_key, sub_keys=None, url_key=None):
     if not items:
         return '<div class="empty-state">Insufficient data</div>'
@@ -666,21 +686,7 @@ def display_results(result, full_name, city_region, analyst_name):
     st.markdown('<div style="height:1rem"></div>', unsafe_allow_html=True)
     with st.expander("Sources", icon=":material/link:"):
         sources = result.get("sources", [])
-        if sources:
-            html = ""
-            for s in sources:
-                url = s.get("url", "#")
-                name = s.get("name", url)
-                stype = s.get("type", "web")
-                html += (
-                    f'<a class="source-link" href="{url}" target="_blank">'
-                    f'<div class="source-title">{name}</div>'
-                    f'<div class="source-url">{url}</div>'
-                    f'<span class="source-tag">{stype}</span></a>'
-                )
-            st.markdown(html, unsafe_allow_html=True)
-        else:
-            st.markdown('<div class="empty-state">No sources recorded.</div>', unsafe_allow_html=True)
+        st.markdown(render_sources(result.get("sources", [])), unsafe_allow_html=True)
 
     # ── Export ────────────────────────────────────────────────────────────────
     st.divider()
@@ -819,21 +825,7 @@ def display_company_results(result, company_name, country, analyst_name):
     st.markdown('<div style="height:1rem"></div>', unsafe_allow_html=True)
     with st.expander("Sources", icon=":material/link:"):
         sources = result.get("sources", [])
-        if sources:
-            html = ""
-            for s in sources:
-                url = s.get("url", "#")
-                name = s.get("name", url)
-                stype = s.get("type", "web")
-                html += (
-                    f'<a class="source-link" href="{url}" target="_blank">'
-                    f'<div class="source-title">{name}</div>'
-                    f'<div class="source-url">{url}</div>'
-                    f'<span class="source-tag">{stype}</span></a>'
-                )
-            st.markdown(html, unsafe_allow_html=True)
-        else:
-            st.markdown('<div class="empty-state">No sources recorded.</div>', unsafe_allow_html=True)
+        st.markdown(render_sources(result.get("sources", [])), unsafe_allow_html=True)
 
     st.divider()
     try:
