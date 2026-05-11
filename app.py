@@ -604,26 +604,26 @@ def display_results(result, full_name, city_region, analyst_name):
     col_l, col_r = st.columns(2)
 
     with col_l:
-        with st.expander("Identity Matches"):
+        with st.expander("Identity Matches", icon=":material/fingerprint:"):
             st.markdown(
                 render_data_items(result.get("identity_matches", []), "name", ["description", "confidence"]),
                 unsafe_allow_html=True
             )
 
-        with st.expander("Professional Profiles"):
+        with st.expander("Professional Profiles", icon=":material/work:"):
             st.markdown(
                 render_data_items(result.get("professional_profiles", []), "role", ["company", "platform"], "url_hint"),
                 unsafe_allow_html=True
             )
 
-        with st.expander("Business Records"):
+        with st.expander("Business Records", icon=":material/business_center:"):
             st.markdown(
                 render_data_items(result.get("business_records", []), "entity", ["role", "status"], "source"),
                 unsafe_allow_html=True
             )
 
     with col_r:
-        with st.expander("Media Mentions"):
+        with st.expander("Media Mentions", icon=":material/newspaper:"):
             media = result.get("media_mentions", [])
             if media:
                 for m in media:
@@ -642,13 +642,13 @@ def display_results(result, full_name, city_region, analyst_name):
             else:
                 st.markdown('<div class="empty-state">Insufficient data</div>', unsafe_allow_html=True)
 
-        with st.expander("Social Media"):
+        with st.expander("Social Media", icon=":material/public:"):
             st.markdown(
                 render_data_items(result.get("social_media_presence", []), "platform", ["description"]),
                 unsafe_allow_html=True
             )
 
-        with st.expander("Legal Public Records"):
+        with st.expander("Legal Public Records", icon=":material/gavel:"):
             st.markdown(
                 render_data_items(result.get("legal_public_records", []), "issue_type", ["date", "summary"], "source"),
                 unsafe_allow_html=True
@@ -656,7 +656,7 @@ def display_results(result, full_name, city_region, analyst_name):
 
     # ── Sources ───────────────────────────────────────────────────────────────
     st.markdown('<div style="height:1rem"></div>', unsafe_allow_html=True)
-    with st.expander("Sources"):
+    with st.expander("Sources", icon=":material/link:"):
         sources = result.get("sources", [])
         if sources:
             for s in sources:
@@ -711,7 +711,7 @@ def display_company_results(result, company_name, country, analyst_name):
     col_l, col_r = st.columns(2)
 
     with col_l:
-        with st.expander("Company Profile"):
+        with st.expander("Company Profile", icon=":material/business:"):
             fields = [
                 ("Founded", profile.get("founded")),
                 ("Legal form", profile.get("legal_form")),
@@ -730,7 +730,7 @@ def display_company_results(result, company_name, country, analyst_name):
             if profile.get("description"):
                 st.markdown(f'<div style="color:#c0d4f0;font-size:0.88rem;padding:0.5rem 0">{profile.get("description")}</div>', unsafe_allow_html=True)
 
-        with st.expander("Directors & Shareholders"):
+        with st.expander("Directors & Shareholders", icon=":material/group:"):
             items = result.get("directors_shareholders", [])
             if items:
                 for p in items:
@@ -743,7 +743,7 @@ def display_company_results(result, company_name, country, analyst_name):
             else:
                 st.markdown('<div class="empty-state">No data found</div>', unsafe_allow_html=True)
 
-        with st.expander("Financials"):
+        with st.expander("Financials", icon=":material/bar_chart:"):
             items = result.get("financials", [])
             if items:
                 for f in items:
@@ -757,7 +757,7 @@ def display_company_results(result, company_name, country, analyst_name):
                 st.markdown('<div class="empty-state">No financial data found</div>', unsafe_allow_html=True)
 
     with col_r:
-        with st.expander("Group Structure"):
+        with st.expander("Group Structure", icon=":material/account_tree:"):
             items = result.get("group_structure", [])
             if items:
                 for g in items:
@@ -770,7 +770,7 @@ def display_company_results(result, company_name, country, analyst_name):
             else:
                 st.markdown('<div class="empty-state">No group structure data found</div>', unsafe_allow_html=True)
 
-        with st.expander("Key People"):
+        with st.expander("Key People", icon=":material/badge:"):
             items = result.get("key_people", [])
             if items:
                 for k in items:
@@ -783,7 +783,7 @@ def display_company_results(result, company_name, country, analyst_name):
             else:
                 st.markdown('<div class="empty-state">No key people found</div>', unsafe_allow_html=True)
 
-        with st.expander("News & Media"):
+        with st.expander("News & Media", icon=":material/newspaper:"):
             items = result.get("news_media", [])
             if items:
                 for m in items:
@@ -798,7 +798,7 @@ def display_company_results(result, company_name, country, analyst_name):
                 st.markdown('<div class="empty-state">No news found</div>', unsafe_allow_html=True)
 
     st.markdown('<div style="height:1rem"></div>', unsafe_allow_html=True)
-    with st.expander("Sources"):
+    with st.expander("Sources", icon=":material/link:"):
         sources = result.get("sources", [])
         if sources:
             for s in sources:
