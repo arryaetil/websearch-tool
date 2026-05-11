@@ -558,7 +558,7 @@ def display_results(result, full_name, city_region, analyst_name):
     # ── Confidence ────────────────────────────────────────────────────────────
     score = int(result.get("confidence_score", 0))
     verdict = result.get("confidence_verdict", "Low")
-    reasoning = result.get("confidence_reasoning", "")
+    reasoning = clean_field(result.get("confidence_reasoning", ""))
     color = verdict_color(score)
 
     st.markdown(f"""
