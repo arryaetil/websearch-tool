@@ -707,31 +707,29 @@ def display_company_results(result, company_name, country, analyst_name):
 
     st.markdown('<div class="subtle-divider"></div>', unsafe_allow_html=True)
 
-    # Profile card
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-header">🏢 Company Profile</div>', unsafe_allow_html=True)
-    fields = [
-        ("Founded", profile.get("founded")),
-        ("Legal form", profile.get("legal_form")),
-        ("Size", profile.get("size")),
-        ("KvK", profile.get("kvk_number")),
-        ("Address", profile.get("address")),
-        ("Website", profile.get("website")),
-    ]
-    for label, value in fields:
-        if value:
-            st.markdown(
-                f'<div class="data-item"><span style="color:#8aa0c4;font-size:0.78rem">{label}</span><div class="di-title" style="font-size:0.88rem">{value}</div></div>',
-                unsafe_allow_html=True
-            )
-    if profile.get("description"):
-        st.markdown(f'<div style="color:#c0d4f0;font-size:0.88rem;padding:0.5rem 0">{profile.get("description")}</div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    # Grid
+    # 3 × 3 grid
     col_l, col_r = st.columns(2)
 
     with col_l:
+        with st.expander("🏢 Company Profile"):
+            fields = [
+                ("Founded", profile.get("founded")),
+                ("Legal form", profile.get("legal_form")),
+                ("Size", profile.get("size")),
+                ("KvK", profile.get("kvk_number")),
+                ("Address", profile.get("address")),
+                ("Website", profile.get("website")),
+            ]
+            for label, value in fields:
+                if value:
+                    st.markdown(
+                        f'<div class="data-item"><span style="color:#8aa0c4;font-size:0.78rem">{label}</span>'
+                        f'<div class="di-title" style="font-size:0.88rem">{value}</div></div>',
+                        unsafe_allow_html=True
+                    )
+            if profile.get("description"):
+                st.markdown(f'<div style="color:#c0d4f0;font-size:0.88rem;padding:0.5rem 0">{profile.get("description")}</div>', unsafe_allow_html=True)
+
         with st.expander("👥 Directors & Shareholders"):
             items = result.get("directors_shareholders", [])
             if items:
@@ -758,6 +756,7 @@ def display_company_results(result, company_name, country, analyst_name):
             else:
                 st.markdown('<div class="empty-state">No financial data found</div>', unsafe_allow_html=True)
 
+    with col_r:
         with st.expander("🔗 Group Structure"):
             items = result.get("group_structure", [])
             if items:
@@ -771,7 +770,19 @@ def display_company_results(result, company_name, country, analyst_name):
             else:
                 st.markdown('<div class="empty-state">No group structure data found</div>', unsafe_allow_html=True)
 
-    with col_r:
+        with st.expander("🧑‍💼 Key People"):
+            items = result.get("key_people", [])
+            if items:
+                for k in items:
+                    st.markdown(
+                        f'<div class="data-item"><div class="di-title">{k.get("name","—")}</div>'
+                        f'<div class="di-sub">{k.get("role","")}</div>'
+                        f'<div class="di-sub">{k.get("description","")}</div></div>',
+                        unsafe_allow_html=True
+                    )
+            else:
+                st.markdown('<div class="empty-state">No key people found</div>', unsafe_allow_html=True)
+
         with st.expander("📰 News & Media"):
             items = result.get("news_media", [])
             if items:
@@ -785,19 +796,6 @@ def display_company_results(result, company_name, country, analyst_name):
                     )
             else:
                 st.markdown('<div class="empty-state">No news found</div>', unsafe_allow_html=True)
-
-        with st.expander("🧑‍💼 Key People"):
-            items = result.get("key_people", [])
-            if items:
-                for k in items:
-                    st.markdown(
-                        f'<div class="data-item"><div class="di-title">{k.get("name","—")}</div>'
-                        f'<div class="di-sub">{k.get("role","")}</div>'
-                        f'<div class="di-sub">{k.get("description","")}</div></div>',
-                        unsafe_allow_html=True
-                    )
-            else:
-                st.markdown('<div class="empty-state">No key people found</div>', unsafe_allow_html=True)
 
     st.markdown('<div style="height:1rem"></div>', unsafe_allow_html=True)
     with st.expander("🔗 Sources"):
