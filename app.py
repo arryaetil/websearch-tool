@@ -16,6 +16,12 @@ def clean_field(text):
     s = re.sub(r'\s{2,}', ' ', s).strip()
     return s
 
+def clean_url(url):
+    """Strip UTM and tracking parameters from URLs for display."""
+    if not url:
+        return url
+    return re.sub(r'[?&]utm_[^&\s)]+', '', str(url)).rstrip('?&')
+
 st.set_page_config(
     page_title="KYCX · Adverse Media Check",
     page_icon="🔎",
@@ -520,16 +526,16 @@ def render_sources(sources):
         return '<div class="empty-state">No sources recorded.</div>'
     rows = ""
     for s in sources:
-        url = s.get("url", "#")
-        name = s.get("name", url)
-        stype = s.get("type", "web")
+        url = clean_url(s.get("url", "#"))
+        name = clean_field(s.get("name", url))
+        stype = clean_field(s.get("type", "web"))
         rows += (
-            f'<div style="display:flex;align-items:flex-start;gap:0.9rem;padding:0.7rem 0;border-bottom:1px solid rgba(255,255,255,0.05)">'
+            f'<div style="display:flex;align-items:center;gap:0.9rem;padding:0.65rem 0;border-bottom:1px solid rgba(255,255,255,0.05)">'
             f'<div style="flex:1;min-width:0">'
-            f'<a href="{url}" target="_blank" style="color:#6fb1ff;font-weight:600;font-size:0.86rem;text-decoration:none;word-break:break-word">{name}</a>'
-            f'<div style="color:#5a7299;font-size:0.72rem;margin-top:3px;word-break:break-all;line-height:1.4">{url}</div>'
+            f'<a href="{url}" target="_blank" style="color:#6fb1ff;font-weight:600;font-size:0.86rem;text-decoration:none;display:block;margin-bottom:2px">{name}</a>'
+            f'<span style="color:#4e6585;font-size:0.71rem;word-break:break-all">{url}</span>'
             f'</div>'
-            f'<span style="flex-shrink:0;background:rgba(47,128,255,0.10);color:#9fc8ff;border:1px solid rgba(47,128,255,0.22);border-radius:999px;padding:3px 9px;font-size:0.7rem;white-space:nowrap">{stype}</span>'
+            f'<span style="flex-shrink:0;background:rgba(47,128,255,0.08);color:#7aa8e0;border:1px solid rgba(47,128,255,0.18);border-radius:6px;padding:3px 8px;font-size:0.69rem;white-space:nowrap">{stype}</span>'
             f'</div>'
         )
     return f'<div style="padding:0 0.1rem">{rows}</div>'
@@ -847,9 +853,9 @@ if run_btn:
         st.error("Full name and city/region are required.")
         st.stop()
 
-    with st.status("Searching the web...", expanded=True) as status:
-        st.write(f"Searching for **{full_name}** · {city_region}...")
-        st.write("Following leads across public sources — this may take a moment.")
+    with st.status("Running intelligence scan...", expanded=True) as status:
+        st.write(f"Initiating scan on **{full_name}** · {city_region}...")
+        st.write("Aggregating signals across open-source intelligence channels...")
         result, error = run_research(
             name=full_name,
             city=city_region,
@@ -862,7 +868,7 @@ if run_btn:
             status.update(label=f"Error: {error}", state="error")
             st.stop()
 
-        status.update(label="Research complete!", state="complete")
+        status.update(label="Scan complete.", state="complete")
 
     with open("audit_log.jsonl", "a", encoding="utf-8") as f:
         f.write(json.dumps({
@@ -881,11 +887,11 @@ if deep_btn:
         st.error("Full name and city/region are required.")
         st.stop()
 
-    st.warning("Deep Scan uses Perplexity Sonar Deep Research and typically takes **2–5 minutes**. Please wait.")
+    st.warning("Deep Scan runs an extended multi-source intelligence sweep and typically takes **2–5 minutes**.")
 
-    with st.status("Running deep research...", expanded=True) as status:
-        st.write(f"Deep scanning **{full_name}** · {city_region}...")
-        st.write("Following every lead across public sources — this takes longer than a standard scan.")
+    with st.status("Running deep intelligence sweep...", expanded=True) as status:
+        st.write(f"Initiating deep scan on **{full_name}** · {city_region}...")
+        st.write("Cross-referencing extended source network — this takes longer than a standard scan.")
         result, error = run_deep_research(
             name=full_name,
             city=city_region,
@@ -898,7 +904,7 @@ if deep_btn:
             status.update(label=f"Error: {error}", state="error")
             st.stop()
 
-        status.update(label="Deep research complete!", state="complete")
+        status.update(label="Deep scan complete.", state="complete")
 
     with open("audit_log.jsonl", "a", encoding="utf-8") as f:
         f.write(json.dumps({
@@ -918,9 +924,9 @@ if company_run_btn:
         st.error("Company name and country/region are required.")
         st.stop()
 
-    with st.status("Researching company...", expanded=True) as status:
-        st.write(f"Researching **{company_name}** · {company_country}...")
-        st.write("Gathering public information — this may take a moment.")
+    with st.status("Running company intelligence scan...", expanded=True) as status:
+        st.write(f"Initiating scan on **{company_name}** · {company_country}...")
+        st.write("Aggregating signals across open-source intelligence channels...")
         company_result, company_error = run_company_research(
             company_name=company_name,
             country=company_country,
@@ -933,7 +939,7 @@ if company_run_btn:
             status.update(label=f"Error: {company_error}", state="error")
             st.stop()
 
-        status.update(label="Research complete!", state="complete")
+        status.update(label="Scan complete.", state="complete")
 
     with open("audit_log.jsonl", "a", encoding="utf-8") as f:
         f.write(json.dumps({
