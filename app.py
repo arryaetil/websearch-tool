@@ -11,8 +11,9 @@ def clean_field(text):
     """Strip inline markdown links and citation noise from model field values."""
     if not text:
         return text
-    s = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', str(text))  # [label](url) → label
-    s = re.sub(r'\(https?://\S+\)', '', s)                   # leftover (url) blobs
+    s = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', str(text))   # [label](url) → label
+    s = re.sub(r'\(https?://\S+\)', '', s)                    # leftover (https://...) blobs
+    s = re.sub(r'\([a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}\)', '', s)  # (domain.nl) citations
     s = re.sub(r'\s{2,}', ' ', s).strip()
     return s
 
@@ -614,26 +615,25 @@ def display_results(result, full_name, city_region, analyst_name):
 
     # ── Risk flags ────────────────────────────────────────────────────────────
     st.markdown('<div style="height:1rem"></div>', unsafe_allow_html=True)
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-header">Risk Flags</div>', unsafe_allow_html=True)
-
     flags = result.get("risk_flags", [])
     if not flags:
-        st.success("✓ No risk flags identified.")
+        flags_html = '<div style="color:#16c784;font-weight:600;font-size:0.9rem;padding:0.2rem 0">✓ No risk flags identified.</div>'
     else:
-        html = ""
+        flags_html = ""
         for f in flags:
             sev = (f.get("severity") or "low").lower()
             box_class = "flag-high" if sev == "high" else "flag-medium" if sev == "medium" else "flag-low"
             icon = "⛔" if sev == "high" else "⚠️" if sev == "medium" else "ℹ️"
-            html += (
+            flags_html += (
                 f'<div class="flag-box {box_class}">'
                 f'<div class="flag-head">{icon} [{sev.upper()}] {clean_field(f.get("category", ""))}</div>'
                 f'<div class="di-sub" style="font-size:0.83rem;color:#d7e5fb">{clean_field(f.get("description", ""))}</div>'
                 f'</div>'
             )
-        st.markdown(html, unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="glass-card"><div class="section-header">Risk Flags</div>{flags_html}</div>',
+        unsafe_allow_html=True
+    )
 
     # ── Grid layout ───────────────────────────────────────────────────────────
     col_l, col_r = st.columns(2)
@@ -755,24 +755,25 @@ def display_company_results(result, company_name, country, analyst_name):
     )
 
     # ── Risk flags ────────────────────────────────────────────────────────────
-    st.markdown('<div class="glass-card"><div class="section-header">Risk Flags</div>', unsafe_allow_html=True)
     flags = result.get("risk_flags", [])
     if not flags:
-        st.success("✓ No risk flags identified.")
+        flags_html = '<div style="color:#16c784;font-weight:600;font-size:0.9rem;padding:0.2rem 0">✓ No risk flags identified.</div>'
     else:
-        html = ""
+        flags_html = ""
         for f in flags:
             sev = (f.get("severity") or "low").lower()
             box_class = "flag-high" if sev == "high" else "flag-medium" if sev == "medium" else "flag-low"
             icon = "⛔" if sev == "high" else "⚠️" if sev == "medium" else "ℹ️"
-            html += (
+            flags_html += (
                 f'<div class="flag-box {box_class}">'
                 f'<div class="flag-head">{icon} [{sev.upper()}] {clean_field(f.get("category", ""))}</div>'
                 f'<div class="di-sub" style="font-size:0.83rem;color:#d7e5fb">{clean_field(f.get("description", ""))}</div>'
                 f'</div>'
             )
-        st.markdown(html, unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="glass-card"><div class="section-header">Risk Flags</div>{flags_html}</div>',
+        unsafe_allow_html=True
+    )
     st.markdown('<div style="height:0.5rem"></div>', unsafe_allow_html=True)
 
     # 3 × 3 grid
