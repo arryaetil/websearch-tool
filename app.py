@@ -522,8 +522,8 @@ def render_data_items(items, title_key, sub_keys=None, url_key=None):
     sub_keys = sub_keys or []
     html = ""
     for item in items:
-        title = item.get(title_key, "—")
-        subs = " · ".join(str(item.get(k, "")) for k in sub_keys if item.get(k))
+        title = clean_field(item.get(title_key, "—"))
+        subs = " · ".join(clean_field(item.get(k, "")) for k in sub_keys if item.get(k))
         url = item.get(url_key, "") if url_key else ""
 
         html += '<div class="data-item">'
@@ -531,7 +531,7 @@ def render_data_items(items, title_key, sub_keys=None, url_key=None):
         if subs:
             html += f'<div class="di-sub">{subs}</div>'
         if url:
-            html += f'<div class="di-url">{url}</div>'
+            html += f'<div class="di-url">{clean_field(url)}</div>'
         html += '</div>'
     return html
 
@@ -595,19 +595,18 @@ def display_results(result, full_name, city_region, analyst_name):
     if not flags:
         st.success("✓ No risk flags identified.")
     else:
+        html = ""
         for f in flags:
             sev = (f.get("severity") or "low").lower()
             box_class = "flag-high" if sev == "high" else "flag-medium" if sev == "medium" else "flag-low"
             icon = "⛔" if sev == "high" else "⚠️" if sev == "medium" else "ℹ️"
-            st.markdown(
-                f"""
-                <div class="flag-box {box_class}">
-                    <div class="flag-head">{icon} [{sev.upper()}] {f.get("category", "")}</div>
-                    <div class="di-sub" style="font-size:0.83rem;color:#d7e5fb">{f.get("description", "")}</div>
-                </div>
-                """,
-                unsafe_allow_html=True
+            html += (
+                f'<div class="flag-box {box_class}">'
+                f'<div class="flag-head">{icon} [{sev.upper()}] {clean_field(f.get("category", ""))}</div>'
+                f'<div class="di-sub" style="font-size:0.83rem;color:#d7e5fb">{clean_field(f.get("description", ""))}</div>'
+                f'</div>'
             )
+        st.markdown(html, unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
     # ── Grid layout ───────────────────────────────────────────────────────────
@@ -636,19 +635,18 @@ def display_results(result, full_name, city_region, analyst_name):
         with st.expander("Media Mentions", icon=":material/newspaper:"):
             media = result.get("media_mentions", [])
             if media:
+                html = ""
                 for m in media:
                     sentiment = (m.get("sentiment") or "").lower()
                     icon = {"positive": "🟢", "neutral": "⚪", "negative": "🔴"}.get(sentiment, "⚪")
-                    st.markdown(
-                        f"""
-                        <div class="data-item">
-                            <div class="di-title">{icon} {m.get("title", "—")}</div>
-                            <div class="di-sub">{m.get("source", "")} · {m.get("date", "")} · {m.get("sentiment", "")}</div>
-                            <div class="di-sub">{m.get("summary", "")}</div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True
+                    html += (
+                        f'<div class="data-item">'
+                        f'<div class="di-title">{icon} {clean_field(m.get("title", "—"))}</div>'
+                        f'<div class="di-sub">{clean_field(m.get("source", ""))} · {clean_field(m.get("date", ""))} · {clean_field(m.get("sentiment", ""))}</div>'
+                        f'<div class="di-sub">{clean_field(m.get("summary", ""))}</div>'
+                        f'</div>'
                     )
+                st.markdown(html, unsafe_allow_html=True)
             else:
                 st.markdown('<div class="empty-state">Insufficient data</div>', unsafe_allow_html=True)
 
@@ -704,9 +702,12 @@ def display_company_results(result, company_name, country, analyst_name):
 
     t1, t2 = st.columns([3, 2])
     with t1:
-        st.markdown(f'<div class="report-title">{profile.get("name", company_name)}</div>', unsafe_allow_html=True)
-        if profile.get("sector"):
-            st.markdown(f'<div class="hero-sub">{profile.get("sector")} · {profile.get("legal_form", "")}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="report-title">{clean_field(profile.get("name", company_name))}</div>', unsafe_allow_html=True)
+        sector = clean_field(profile.get("sector"))
+        legal = clean_field(profile.get("legal_form"))
+        if sector or legal:
+            subtitle = " · ".join(v for v in [sector, legal] if v)
+            st.markdown(f'<div class="hero-sub">{subtitle}</div>', unsafe_allow_html=True)
     with t2:
         st.markdown(
             f'<div class="report-meta">Generated {datetime.now().strftime("%d %b %Y %H:%M")} · Analyst: {analyst_name or "—"}</div>',
