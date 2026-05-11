@@ -749,14 +749,13 @@ def display_company_results(result, company_name, country, analyst_name):
     st.markdown(
         f'<div style="background:linear-gradient(135deg,rgba(22,199,132,0.07),rgba(22,199,132,0.03));'
         f'border:1px solid rgba(22,199,132,0.22);border-radius:16px;padding:1rem 1.2rem;margin-bottom:1rem">'
-        f'<div style="font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.1em;color:#16c784;margin-bottom:0.6rem">Werkgelegenheidsonderzoek — direct bruikbare velden</div>'
+        f'<div style="font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.1em;color:#16c784;margin-bottom:0.6rem">Werkgelegenheidsonderzoek</div>'
         f'{survey_html}</div>',
         unsafe_allow_html=True
     )
 
     # ── Risk flags ────────────────────────────────────────────────────────────
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-header">Risk Flags</div>', unsafe_allow_html=True)
+    st.markdown('<div class="glass-card"><div class="section-header">Risk Flags</div>', unsafe_allow_html=True)
     flags = result.get("risk_flags", [])
     if not flags:
         st.success("✓ No risk flags identified.")
