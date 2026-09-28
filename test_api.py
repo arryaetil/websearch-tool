@@ -32,7 +32,7 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["subject"], expected["subject"])
         self.assertEqual(response.headers["cache-control"], "no-store")
-        workflow.assert_called_once_with("Alex Jansen", "Utrecht", "", "", birth_year=None, profession="unknown")
+        workflow.assert_called_once_with("Alex Jansen", "Utrecht", "", "", birth_year=None, profession="unknown", aliases="")
 
     def test_research_rejects_implausible_birth_year(self):
         response = self.client.post("/research", json={"name": "Alex Jansen", "city": "Utrecht", "birth_year": 1800})

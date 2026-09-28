@@ -142,7 +142,7 @@ class IdentityWorkflowTests(unittest.TestCase):
     def test_search_keeps_dutch_official_and_identity_results(self):
         def fake_post(url, headers, json, timeout):
             query = json["q"]
-            group = ("official" if "site:" in query else "dutch" if "fraude" in query
+            group = ("official" if "site:" in query else "alias" if '"Lex J."' in query else "dutch" if "fraude" in query
                      else "english" if "fraud" in query else "identity")
             response = MagicMock()
             response.json.return_value = {"organic": [
@@ -154,11 +154,11 @@ class IdentityWorkflowTests(unittest.TestCase):
         with patch.dict("identity_workflow.os.environ", {"SERPER_API_KEY": "test-key"}), \
              patch("identity_workflow.requests.post", side_effect=fake_post), \
              patch("identity_workflow.safe_public_url", return_value=True):
-            result = search({"name": "Alex Jansen", "city": "Utrecht"})
+            result = search({"name": "Alex Jansen", "city": "Utrecht", "aliases": ["lex"]})
         urls = [item["url"] for item in result["results"]]
-        self.assertEqual(result["metrics"]["search_queries"], 4)
+        self.assertEqual(result["metrics"]["search_queries"], 5)
         self.assertEqual(len(urls), 8)
-        for group in ("dutch", "official", "identity"):
+        for group in ("dutch", "official", "alias", "identity"):
             self.assertTrue(any(f"{group}.example" in url for url in urls), group)
 
     def test_graph_runs_branches_and_survives_failures(self):

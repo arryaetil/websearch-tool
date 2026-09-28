@@ -4,7 +4,7 @@ from io import BytesIO
 
 import big_register
 import sanctions
-from identity_rules import compare_age, compare_city, compare_name, decide_tier, split_name
+from identity_rules import compare_age, compare_city, compare_name, decide_tier, search_aliases, split_name
 
 
 def card(**statuses):
@@ -29,6 +29,17 @@ class NameTests(unittest.TestCase):
         self.assertEqual(compare_name("Albert Bril", "Appie Bril", "Appie Bril uit Bergentheim"), "partial")
         self.assertEqual(compare_name("Appie Bril", None, "Albert Bril sprak"), "partial")
         self.assertEqual(compare_name("Albert Bril", None, "Appie de Groot"), "absent")
+
+    def test_supplied_alias_is_a_partial_name(self):
+        self.assertEqual(compare_name("Albert Bril", "Bertus Bril", "Bertus Bril", ["bertus"]), "partial")
+        self.assertEqual(compare_name("Albert Bril", "Bertus Bril", "Bertus Bril"), "conflict")
+
+    def test_search_forms_cover_shortened_names_and_nicknames(self):
+        forms = search_aliases("Albert Bril", [])
+        self.assertIn("Albert B.", forms)
+        self.assertIn("Appie B.", forms)
+        self.assertIn("Appie Bril", forms)
+        self.assertLessEqual(len(forms), 6)
 
     def test_other_first_name_conflicts(self):
         self.assertEqual(compare_name("Albert Bril", "Peter Bril", "Peter Bril sprak"), "conflict")

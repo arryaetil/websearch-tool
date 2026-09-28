@@ -51,6 +51,8 @@ class ResearchRequest(BaseModel):
     # A year, not a full date: enough to compare with ages in reports and sanctions lists.
     birth_year: int | None = Field(default=None, ge=1900, le=date.today().year)
     profession: Literal["healthcare", "lawyer", "other", "unknown"] = "unknown"
+    # Names the person is known by, comma separated, such as a roepnaam.
+    aliases: str = Field(default="", max_length=160)
 
 
 class PdfRequest(BaseModel):
@@ -68,7 +70,7 @@ def research(request: ResearchRequest):
     try:
         report = dict(run_identity_research(
             request.name, request.city, request.employer, request.context,
-            birth_year=request.birth_year, profession=request.profession,
+            birth_year=request.birth_year, profession=request.profession, aliases=request.aliases,
         ))
     except (ValueError, RuntimeError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

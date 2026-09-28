@@ -30,6 +30,7 @@ import big_register
 import sanctions
 from identity_rules import (
     compare_age, compare_city, compare_employer, compare_name, compare_profession, decide_tier,
+    parse_aliases, search_aliases,
 )
 
 load_dotenv(Path(__file__).parent / ".env")
@@ -49,6 +50,7 @@ MANUAL_CHECKS = [
 ]
 ADVERSE_FLAGS = {  # Most serious first; one flag per code.
     "conviction": ("reported_conviction", "Reported conviction"),
+    "settlement": ("reported_settlement", "Settlement with prosecutors reported"),
     "sanction": ("reported_sanction", "Reported sanction"),
     "fine": ("regulatory_fine", "Regulatory fine reported"),
     "professional_measure": ("professional_measure", "Professional measure reported"),
@@ -66,6 +68,7 @@ class ResearchState(TypedDict, total=False):
     name: str
     city: str
     employer: str
+    aliases: list[str]
     birth_year: int | None
     profession: str
     context: str
@@ -124,6 +127,10 @@ def search(state: ResearchState) -> dict:
         f'"{name}" "{state["city"]}" (onderzoek OR fraude OR boete OR verdenking)',
         f'"{name}" (' + " OR ".join(f"site:{site}" for site in OFFICIAL_SITES) + ")",
     ]
+    # News reports often shorten names ("Appie B.") or use a roepnaam; search those too.
+    forms = search_aliases(name, state.get("aliases", []))
+    if forms:
+        queries.append("(" + " OR ".join(f'"{form}"' for form in forms) + f') "{state["city"]}"')
     if state.get("employer"):
         queries.append(f'"{name}" "{state["employer"]}"')
     queries.append(f'"{name}" "{state["city"]}"')
@@ -162,7 +169,8 @@ def search(state: ResearchState) -> dict:
                     added += 1
     return {"results": results, "coverage": [_coverage(
         "web", "Web and official-site search", "searched",
-        f"{len(queries)} queries, including {', '.join(OFFICIAL_SITES)}")],
+        f"{len(queries)} queries, including {', '.join(OFFICIAL_SITES)}"
+        + (f" and name forms {', '.join(forms)}" if forms else ""))],
         "metrics": {"search_seconds": round(time.perf_counter() - started, 2), "search_queries": len(queries)}}
 
 
@@ -273,7 +281,8 @@ person: object for the one person in the source whose name most resembles the su
 publication_date: YYYY-MM-DD when the source states it, else null.
 summary: one or two neutral sentences for an analyst on who the source describes.
 claims: array of objects with summary, exact_quote and type, where type is one of
-  allegation, charge, conviction, fine, sanction, professional_measure, other.
+  allegation, charge, conviction, settlement (a deal with prosecutors), fine, sanction,
+  professional_measure, other.
 Only report facts the source states about that person. Never guess an age, city or
 employer, and never copy the subject details into the answer. Claims cover only
 potentially adverse public reporting about that person, never ordinary career facts.
@@ -305,7 +314,7 @@ def build_identity_card(state: ResearchState, person: dict, publication_year: in
         age = None
     age_status, age_note = compare_age(state.get("birth_year"), age, publication_year)
     return {
-        "name": {"status": compare_name(state["name"], fact("name_as_written"), text),
+        "name": {"status": compare_name(state["name"], fact("name_as_written"), text, state.get("aliases", [])),
                  "value": fact("name_as_written"), "quote": quote("name_as_written")},
         "city": {"status": compare_city(state.get("city", ""), fact("city"), text),
                  "value": fact("city"), "quote": quote("city")},
@@ -326,7 +335,7 @@ def assess(state: ResearchState) -> dict:
     client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
     assessments = []
     input_tokens = output_tokens = cached_tokens = 0
-    subject = {k: state.get(k) for k in ("name", "city", "employer", "birth_year", "profession")}
+    subject = {k: state.get(k) for k in ("name", "aliases", "city", "employer", "birth_year", "profession")}
     for page in pages:
         payload = {"subject": subject, "source_url": page["url"], "source_text": page["content"]}
         response = client.responses.create(
@@ -487,7 +496,8 @@ def assemble(state: ResearchState) -> dict:
         for i, c in enumerate(MANUAL_CHECKS)
     ]
     return {"report": {
-        "subject": {k: state.get(k) or "" for k in ("name", "city", "employer", "birth_year", "profession")},
+        "subject": {**{k: state.get(k) or "" for k in ("name", "city", "employer", "birth_year", "profession")},
+                    "aliases": state.get("aliases", [])},
         "sources": assessments,
         "confirmed_findings": [
             {"summary": c["summary"], "quote": c["quote"], "url": item["url"]}
@@ -537,13 +547,13 @@ def build_graph():
 
 
 def run_identity_research(name: str, city: str, employer: str = "", context: str = "",
-                          birth_year: int | None = None, profession: str = "unknown") -> dict:
+                          birth_year: int | None = None, profession: str = "unknown", aliases: str = "") -> dict:
     if not name.strip() or not city.strip():
         raise ValueError("Full name and city are required")
     started = time.perf_counter()
     report = build_graph().invoke({
         "name": name.strip(), "city": city.strip(), "employer": employer.strip(),
-        "birth_year": birth_year, "profession": profession or "unknown",
+        "aliases": parse_aliases(aliases), "birth_year": birth_year, "profession": profession or "unknown",
         "context": context.strip(), "errors": [], "coverage": [], "metrics": {},
     })["report"]
     report["metrics"]["total_seconds"] = round(time.perf_counter() - started, 2)

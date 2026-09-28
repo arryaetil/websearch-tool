@@ -33,7 +33,7 @@ type CoverageEntry = { key: string; label: string; status: CoverageStatus; detai
 type Profession = "unknown" | "healthcare" | "lawyer" | "other";
 type Report = {
   saved_run?: { id: string; created_at: number; expires_at: number };
-  subject: { name: string; city: string; employer: string; birth_year?: number | ""; profession?: Profession | "" };
+  subject: { name: string; city: string; employer: string; aliases?: string[]; birth_year?: number | ""; profession?: Profession | "" };
   sources: Source[];
   confirmed_findings: { summary: string; quote: string; url: string }[];
   risk_flags?: string[];
@@ -106,6 +106,7 @@ export default function Home() {
   const [name, setName] = useState("");
   const [city, setCity] = useState("");
   const [employer, setEmployer] = useState("");
+  const [aliases, setAliases] = useState("");
   const [birthYear, setBirthYear] = useState("");
   const [profession, setProfession] = useState<Profession>("unknown");
   const [report, setReport] = useState<Report | null>(null);
@@ -154,6 +155,7 @@ export default function Home() {
       setName(payload.subject.name);
       setCity(payload.subject.city);
       setEmployer(payload.subject.employer || "");
+      setAliases((payload.subject.aliases || []).join(", "));
       setBirthYear(payload.subject.birth_year ? String(payload.subject.birth_year) : "");
       setProfession(payload.subject.profession || "unknown");
       setSelected(0);
@@ -209,7 +211,7 @@ export default function Home() {
       const response = await fetch("/api/research", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name, city, employer, birth_year: birthYear ? Number(birthYear) : null, profession }),
+        body: JSON.stringify({ name, city, employer, aliases, birth_year: birthYear ? Number(birthYear) : null, profession }),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.detail || "Adverse media check failed.");
@@ -258,6 +260,7 @@ export default function Home() {
     setName("");
     setCity("");
     setEmployer("");
+    setAliases("");
     setBirthYear("");
     setProfession("unknown");
     setError("");
@@ -280,7 +283,7 @@ export default function Home() {
       <div className="tech-hero"><div className="content"><h1>Adverse media check</h1></div></div>
 
       <div className="content">
-        <form className="search-panel" onSubmit={runResearch}><div className="search-panel-header"><div className="search-icon"><Search size={19}/></div><div><strong>Check a person</strong></div><span className="shortcut"><Command size={12}/> /</span></div><div className="search-fields"><label className="field field-name"><span>FULL NAME <em>*</em></span><input ref={inputRef} value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Jordan Example" autoComplete="off" required minLength={3}/></label><label className="field"><span>CITY OR REGION <em>*</em></span><input value={city} onChange={(event) => setCity(event.target.value)} placeholder="e.g. Utrecht" autoComplete="off" required minLength={2}/></label><label className="field"><span>EMPLOYER <small>FOR A STRONG MATCH</small></span><input value={employer} onChange={(event) => setEmployer(event.target.value)} placeholder="e.g. Example Studio" autoComplete="off"/></label><label className="field"><span>BIRTH YEAR <small>YEAR ONLY</small></span><input value={birthYear} onChange={(event) => setBirthYear(event.target.value.replace(/\D/g, "").slice(0, 4))} placeholder="e.g. 1972" inputMode="numeric" autoComplete="off" pattern="(19|20)[0-9]{2}" title="A four-digit year, for example 1972"/></label><label className="field"><span>PROFESSION</span><select value={profession} onChange={(event) => setProfession(event.target.value as Profession)}><option value="unknown">Unknown</option><option value="healthcare">Healthcare (BIG register)</option><option value="lawyer">Lawyer</option><option value="other">Other</option></select></label><button className="search-submit" type="submit" disabled={running}>{running ? <LoaderCircle size={18} className="spin"/> : <ArrowRight size={18}/>}<span>{running ? "Checking" : "Run check"}</span></button></div></form>
+        <form className="search-panel" onSubmit={runResearch}><div className="search-panel-header"><div className="search-icon"><Search size={19}/></div><div><strong>Check a person</strong></div><span className="shortcut"><Command size={12}/> /</span></div><div className="search-fields"><label className="field field-name"><span>FULL NAME <em>*</em></span><input ref={inputRef} value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Jordan Example" autoComplete="off" required minLength={3}/></label><label className="field"><span>CITY OR REGION <em>*</em></span><input value={city} onChange={(event) => setCity(event.target.value)} placeholder="e.g. Utrecht" autoComplete="off" required minLength={2}/></label><label className="field"><span>EMPLOYER <small>FOR A STRONG MATCH</small></span><input value={employer} onChange={(event) => setEmployer(event.target.value)} placeholder="e.g. Example Studio" autoComplete="off"/></label><label className="field"><span>KNOWN AS <small>NICKNAMES, COMMA SEPARATED</small></span><input value={aliases} onChange={(event) => setAliases(event.target.value)} placeholder="e.g. Appie" autoComplete="off" maxLength={160}/></label><label className="field"><span>BIRTH YEAR <small>YEAR ONLY</small></span><input value={birthYear} onChange={(event) => setBirthYear(event.target.value.replace(/\D/g, "").slice(0, 4))} placeholder="e.g. 1972" inputMode="numeric" autoComplete="off" pattern="(19|20)[0-9]{2}" title="A four-digit year, for example 1972"/></label><label className="field"><span>PROFESSION</span><select value={profession} onChange={(event) => setProfession(event.target.value as Profession)}><option value="unknown">Unknown</option><option value="healthcare">Healthcare (BIG register)</option><option value="lawyer">Lawyer</option><option value="other">Other</option></select></label><button className="search-submit" type="submit" disabled={running}>{running ? <LoaderCircle size={18} className="spin"/> : <ArrowRight size={18}/>}<span>{running ? "Checking" : "Run check"}</span></button></div></form>
 
 
         {error && <div className="error-banner" role="alert"><CircleHelp size={17}/><span>{error}</span><button onClick={() => setError("")} aria-label="Dismiss error"><X size={16}/></button></div>}

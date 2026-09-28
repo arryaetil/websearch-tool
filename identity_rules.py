@@ -21,7 +21,7 @@ STRONG_ANCHORS = ("employer", "age", "profession")
 
 # Common Dutch roepnamen. Each group links a formal given name to everyday forms.
 NICKNAME_GROUPS = (
-    ("albert", "albertus", "appie", "ab", "bert"), ("johannes", "johan", "jan", "hans", "joop", "hannes"),
+    ("albert", "appie", "bert", "ab", "albertus"), ("johannes", "johan", "jan", "hans", "joop", "hannes"),
     ("cornelis", "kees", "cor", "cees"), ("hendrik", "henk", "rik", "henny"), ("gerardus", "gerard", "gert", "ger", "gerrit"),
     ("jacobus", "jacob", "jaap", "koos", "co"), ("petrus", "pieter", "piet", "peter"), ("wilhelmus", "willem", "wim", "pim"),
     ("adrianus", "adriaan", "arie", "adri"), ("theodorus", "theo", "dorus"), ("antonius", "anton", "toon", "ton", "teun"),
@@ -35,6 +35,21 @@ NICKNAME_GROUPS = (
 
 def nicknames(given: str) -> set[str]:
     return {name for group in NICKNAME_GROUPS if given in group for name in group} - {given}
+
+
+def search_aliases(full_name: str, aliases: list[str]) -> list[str]:
+    """Written forms that news reports use instead of the full name, for search queries."""
+    first, prefix, surname = split_name(full_name)
+    if not first or not surname:
+        return []
+    stub = f"{prefix} {surname[0].upper()}".strip()
+    tail = f"{prefix} {surname}".strip()
+    # Order: the shortened given name, supplied aliases, then the commonest roepnamen.
+    ordered = [n for group in NICKNAME_GROUPS if first[0] in group for n in group if n != first[0]]
+    forms = [f"{first[0].title()} {stub}."] + [a.title() for a in aliases if " " in a]
+    for g in [a for a in aliases if " " not in a] + ordered:
+        forms += [f"{g.title()} {stub}.", f"{g.title()} {f'{prefix} {surname.title()}'.strip()}"]
+    return list(dict.fromkeys(forms))[:6]
 
 
 def normalize(text: str) -> str:
@@ -64,7 +79,12 @@ def _contains(haystack: str, needle: str) -> bool:
     return bool(needle) and re.search(rf"(?<!\w){re.escape(needle)}(?!\w)", haystack) is not None
 
 
-def name_variants(full_name: str) -> tuple[list[str], list[str]]:
+def parse_aliases(raw: str) -> list[str]:
+    """Analyst-supplied names the person is known by, e.g. "Appie, Appie Bril"."""
+    return [a for a in (normalize(part) for part in (raw or "").split(",")) if a][:3]
+
+
+def name_variants(full_name: str, aliases: tuple[str, ...] | list[str] = ()) -> tuple[list[str], list[str]]:
     """Written forms that count as the full name, and as a partial (pseudonymised) name."""
     first, prefix, surname = split_name(full_name)
     if not first or not surname:
@@ -81,14 +101,17 @@ def name_variants(full_name: str) -> tuple[list[str], list[str]]:
     stub = f"{prefix} {surname[0]}".strip()
     partial = [f"{given} {stub}.", f"{given} {stub}"]
     # A roepnaam ("Appie" for Albert) is weaker than the given name: always partial.
-    for nickname in nicknames(given):
+    # Analyst-supplied aliases are treated the same way: a single word is a first name.
+    alias_given = {a for a in aliases if " " not in a}
+    partial += [a for a in aliases if " " in a]
+    for nickname in nicknames(given) | alias_given:
         partial += [f"{nickname} {tail}", f"{nickname} {stub}.", f"{nickname} {stub}"]
     return list(dict.fromkeys(full)), list(dict.fromkeys(partial))
 
 
-def compare_name(subject_name: str, written: str | None, text: str) -> str:
+def compare_name(subject_name: str, written: str | None, text: str, aliases: tuple[str, ...] | list[str] = ()) -> str:
     """full, partial, conflict or absent."""
-    full, partial = name_variants(subject_name)
+    full, partial = name_variants(subject_name, aliases)
     body = normalize(text)
     if written:
         seen = normalize(written)
@@ -100,7 +123,8 @@ def compare_name(subject_name: str, written: str | None, text: str) -> str:
         seen_first, _, seen_surname = split_name(written)
         if seen_surname == surname and seen_first and first:
             other = seen_first[0].rstrip(".")
-            if len(other) > 1 and other != first[0] and other not in nicknames(first[0]):
+            known = nicknames(first[0]) | {a for a in aliases if " " not in a}
+            if len(other) > 1 and other != first[0] and other not in known:
                 return "conflict"
     if any(_contains(body, v) for v in full):
         return "full"
