@@ -1,0 +1,45 @@
+# KYCX handover
+
+## Repository and current state
+
+- GitHub remote: `https://github.com/arryaetil/websearch-tool.git`.
+- This working tree contains the new Next.js frontend and FastAPI/LangGraph adverse media workflow. Changes are **committed locally but not pushed to GitHub**. Check `git status` and the latest commit before continuing; do not overwrite the working tree.
+- Public Railway frontend: `https://kycx-adverse-media-production.up.railway.app`. Railway project: `kycx-adverse-media` (`3b9dd43c-a2d3-430e-bfe9-e7cbe965bc6e`). Services: `kycx-adverse-media` frontend and private `kycx-api` backend, both configured for Amsterdam.
+- The published login has the original KYCX wordmark centered, no eye icon, centered “Sign in”, and centered official IBC group attribution. The latest backend timing/cost instrumentation and balanced Serper search, plus the frontend run-metrics line, are **local only** at the time of this handover.
+- The backend has a Serper key configured. It does **not** have `OPENAI_API_KEY`; full live assessments cannot run yet. Do not put secrets in Git, handover text, logs, or screenshots.
+- Local Railway access credentials are in the workspace `outputs/kycx-railway-access.txt`; this is deliberately outside the repository and must never be committed or put in the source ZIP.
+
+## Product decisions
+
+- Purpose: adverse media checks on a person, with strong identity matching and source-linked evidence. Search snippets are leads, not findings. Human review is required.
+- The app does not store past research runs. Reports exist only in browser memory unless an analyst exports a PDF. Provider and hosting retention still need review before client use.
+- Interface copy should be sparse and useful. Official, unaltered IBC logo and technology image are included; Ubuntu and selected IBC colors are used. The user wants the `npxskillui` extraction workflow for the **next frontend design pass**. It was not used to build the current frontend.
+- Crawl4AI is currently an opt-in fallback when a page has little HTML. It may help with JavaScript rendering and difficult layouts. Do not represent CAPTCHA or paywall bypass as a reliable source path; prefer a permitted API, license, or manual review.
+
+## Benchmark so far
+
+- Authorized test subject: Albert Bril, Bergentheim. Do not store or publish the retrieved page content.
+- Previous Serper search implementation: 1.94 s, eight candidate URLs, but it could stop after the first query and miss Dutch and context searches.
+- Revised local Serper implementation: three parallel queries, 2.01 s, eight candidate URLs. Results reserve space for English adverse, Dutch adverse, and identity-context searches.
+- Revised local search plus HTML retrieval: search 1.94 s; fetch 5.48 s; eight candidate URLs; four readable pages. This is **not** a full end-to-end benchmark because the model key is missing.
+- Serper Starter list price is $1/1,000 successful queries, so three searches are approximately $0.003 before tax. The local code estimates GPT-4.1 mini cost from actual reported input, cached-input and output tokens at $0.40, $0.10 and $1.60 per million respectively. This is an estimate, not an invoice, and excludes hosting. Official pricing: `https://serper.dev/#pricing` and `https://developers.openai.com/api/docs/models/gpt-4.1-mini`.
+- The current page retrieval and model assessments are sequential. After obtaining a real full-run baseline, consider bounded parallelism, with rate-limit and source-quality checks. Avoid cutting identity evidence solely to save tokens.
+
+## Next steps
+
+1. Inspect the local commit, then push to the GitHub remote when the automatic approval review permits network actions. A `git clone` of `arryaetil/KYC4etil` was blocked because the approval reviewer hit its usage limit; do not bypass that block. This prevents a fair measured comparison with the older Streamlit KYC app for now. Obtain and inspect that repository when access resumes; do not use `app.py` in this repo as a substitute because it is a different company-research prototype.
+2. Configure `OPENAI_API_KEY` securely in the private Railway backend, then run a controlled end-to-end benchmark on the agreed test case and record stage times, token counts, source coverage, and estimated cost. Never print the key or raw personal research to logs.
+3. Redeploy the local timing/cost instrumentation and balanced search to both Railway services after validation. Confirm the latest deployments reach `SUCCESS` and test the public page.
+4. Benchmark the older KYC4etil Streamlit workflow on the same subject and environment, including provider calls and source coverage. Report both latency and output quality; do not claim improvement from different workloads.
+5. Evaluate Crawl4AI on a few permitted, JavaScript-heavy sources. Keep ordinary HTML as the default and measure fallback frequency and delay.
+
+## Validation
+
+- `python -m pytest -q test_api.py test_identity_workflow.py` — nine passing tests after the latest local changes.
+- `cd frontend; npm run build` — passed after adding the metrics display.
+- The deployed frontend and backend versions before the instrumentation both reached Railway `SUCCESS`.
+
+## Packaging
+
+- `outputs/kycx-research-mvp.zip` is a source archive generated with `work/package_mvp.py`. Regenerate it after changes. It excludes `.env`, `audit_log.jsonl`, `.git`, `.next`, and `node_modules`.
+- Keep deliverables in the workspace `outputs` directory; keep temporary analysis under `work`.

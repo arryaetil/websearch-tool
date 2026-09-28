@@ -2,3 +2,6 @@
 __pycache__/
 *.pyc
 audit_log.jsonl
+frontend/node_modules/
+frontend/.next/
+frontend/next-env.d.ts

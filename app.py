@@ -4,7 +4,9 @@ import base64
 from pathlib import Path
 from datetime import datetime
 import re
-from researcher import run_research, run_deep_research, run_company_research
+from researcher import run_company_research
+from identity_workflow import run_identity_research
+from evidence_pdf import generate_evidence_pdf
 from pdf_export import generate_pdf, generate_company_pdf
 
 def clean_field(text):
@@ -496,15 +498,10 @@ with tab_person:
         city_region = st.text_input("City / Region *", placeholder="Amsterdam")
         context = st.text_input("Research context (optional)", placeholder="Mortgage application · €450,000")
     with c2:
-        age = st.text_input("Date of birth (optional)", placeholder="e.g. 15-03-1978")
         employer = st.text_input("Employer (optional)", placeholder="ING Bank")
-        analyst_name = st.text_input("Analyst name (audit log)", placeholder="Your name")
+        analyst_name = st.text_input("Analyst name (PDF only)", placeholder="Your name")
 
-    btn_col1, btn_col2 = st.columns(2)
-    with btn_col1:
-        run_btn = st.button("Get to know your customer", type="primary", use_container_width=True)
-    with btn_col2:
-        deep_btn = st.button("Deep Scan", type="primary", use_container_width=True)
+    run_btn = st.button("Research person", type="primary", use_container_width=True)
 
 # ── Company tab ───────────────────────────────────────────────────────────────
 with tab_company:
@@ -517,7 +514,7 @@ with tab_company:
     with cc2:
         company_kvk = st.text_input("KvK number (optional)", placeholder="e.g. 27532543")
         company_sector = st.text_input("Sector (optional)", placeholder="Technology · Semiconductors")
-        company_analyst = st.text_input("Analyst name (audit log)", placeholder="Your name", key="company_analyst")
+        company_analyst = st.text_input("Analyst name (PDF only)", placeholder="Your name", key="company_analyst")
 
     company_run_btn = st.button("Research Company", type="primary", use_container_width=True)
 
@@ -901,70 +898,42 @@ if run_btn:
         st.error("Full name and city/region are required.")
         st.stop()
 
-    with st.status("Running intelligence scan...", expanded=True) as status:
-        st.write(f"Initiating scan on **{full_name}** · {city_region}...")
-        st.write("Aggregating signals across open-source intelligence channels...")
-        result, error = run_research(
-            name=full_name,
-            city=city_region,
-            age=age,
-            employer=employer,
-            context=context
-        )
-
-        if error:
-            status.update(label=f"Error: {error}", state="error")
-            st.stop()
-
-        status.update(label="Scan complete.", state="complete")
-
-    with open("audit_log.jsonl", "a", encoding="utf-8") as f:
-        f.write(json.dumps({
-            "timestamp": datetime.now().isoformat(),
-            "analyst": analyst_name or "unknown",
-            "subject_name": full_name,
-            "subject_city": city_region,
-            "context": context
-        }, ensure_ascii=False) + "\\n")
-
-    display_results(result, full_name, city_region, analyst_name)
-
-# ── Deep Scan ─────────────────────────────────────────────────────────────────
-if deep_btn:
-    if not full_name or not city_region:
-        st.error("Full name and city/region are required.")
+    try:
+        with st.spinner("Searching and checking source evidence..."):
+            result = run_identity_research(full_name, city_region, employer, context)
+    except Exception as exc:
+        st.error(f"Research failed: {exc}")
         st.stop()
 
-    st.warning("Deep Scan runs an extended multi-source intelligence sweep and typically takes **2–5 minutes**.")
-
-    with st.status("Running deep intelligence sweep...", expanded=True) as status:
-        st.write(f"Initiating deep scan on **{full_name}** · {city_region}...")
-        st.write("Cross-referencing extended source network — this takes longer than a standard scan.")
-        result, error = run_deep_research(
-            name=full_name,
-            city=city_region,
-            age=age,
-            employer=employer,
-            context=context
-        )
-
-        if error:
-            status.update(label=f"Error: {error}", state="error")
-            st.stop()
-
-        status.update(label="Deep scan complete.", state="complete")
-
-    with open("audit_log.jsonl", "a", encoding="utf-8") as f:
-        f.write(json.dumps({
-            "timestamp": datetime.now().isoformat(),
-            "analyst": analyst_name or "unknown",
-            "subject_name": full_name,
-            "subject_city": city_region,
-            "context": context,
-            "scan_type": "deep"
-        }, ensure_ascii=False) + "\\n")
-
-    display_results(result, full_name, city_region, analyst_name)
+    st.subheader("Person research")
+    st.info("Research draft. Identity matches and findings require analyst review before use.")
+    if not result["sources"]:
+        st.warning("No readable sources found. This does not mean no information exists.")
+    for source in result["sources"]:
+        with st.expander(f"{source['identity'].title()}: {source['title'] or source['url']}"):
+            st.write(source["reason"])
+            st.link_button("Open source", source["url"])
+            st.caption(f"Retrieved: {source['retrieved_at']} · SHA-256: {source['sha256']}")
+            for claim in source["claims"]:
+                st.write(claim["summary"])
+                st.caption(f"Evidence: {claim['quote']}")
+    st.subheader("Findings linked to confirmed matches")
+    if result["confirmed_findings"]:
+        for finding in result["confirmed_findings"]:
+            st.write(finding["summary"])
+            st.caption(f"Evidence: {finding['quote']}")
+            st.markdown(f"[View evidence]({finding['url']})")
+    else:
+        st.write("No confirmed findings. Review possible matches above.")
+    for error in result["errors"]:
+        st.caption(error)
+    st.download_button(
+        "Download research draft (PDF)",
+        data=generate_evidence_pdf(result, analyst_name),
+        file_name=f"person_research_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+        mime="application/pdf",
+        use_container_width=True,
+    )
 
 # ── Company research run ───────────────────────────────────────────────────────
 if company_run_btn:
@@ -988,15 +957,5 @@ if company_run_btn:
             st.stop()
 
         status.update(label="Scan complete.", state="complete")
-
-    with open("audit_log.jsonl", "a", encoding="utf-8") as f:
-        f.write(json.dumps({
-            "timestamp": datetime.now().isoformat(),
-            "analyst": company_analyst or "unknown",
-            "subject_name": company_name,
-            "subject_city": company_country,
-            "context": company_context,
-            "scan_type": "company"
-        }, ensure_ascii=False) + "\n")
 
     display_company_results(company_result, company_name, company_country, company_analyst)

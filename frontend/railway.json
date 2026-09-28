@@ -1,0 +1,10 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "deploy": {
+    "startCommand": "npm run start",
+    "healthcheckPath": "/login",
+    "multiRegionConfig": {
+      "europe-west4-drams3a": { "numReplicas": 1 }
+    }
+  }
+}
