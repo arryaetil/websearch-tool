@@ -58,6 +58,7 @@ class IdentityWorkflowTests(unittest.TestCase):
         )
         self.assertEqual(item["identity"], "possible")
         self.assertEqual(item["claims"], [])
+        self.assertEqual(item["confidence_score"], 2)
 
     def test_only_exact_evidence_is_kept(self):
         item = self.assess_with_model(
@@ -68,10 +69,21 @@ class IdentityWorkflowTests(unittest.TestCase):
             ]}, employer="Example Studio",
         )
         self.assertEqual(item["identity"], "confirmed")
+        self.assertEqual(item["confidence_score"], 3)
         self.assertEqual(len(item["claims"]), 1)
         report = assemble({"name": "Alex Jansen", "city": "Utrecht", "assessments": [item]})["report"]
         self.assertEqual(len(report["confirmed_findings"]), 1)
         self.assertEqual(report["review_status"], "awaiting_human_review")
+        self.assertEqual(report["risk_flags"], ["Linked adverse reporting"])
+
+    def test_flags_distinguish_unresolved_identity_and_coverage(self):
+        report = assemble({
+            "name": "Alex Jansen", "city": "Utrecht",
+            "assessments": [{"identity": "possible", "claims": []}],
+            "errors": ["Could not read a source"],
+        })["report"]
+        self.assertEqual(report["risk_flags"], ["Identity needs review", "Source coverage gap"])
+        self.assertEqual(report["confirmed_findings"], [])
 
     def test_private_urls_are_rejected(self):
         self.assertFalse(safe_public_url("http://127.0.0.1/private"))

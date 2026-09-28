@@ -3,8 +3,8 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import {
-  ArrowDownToLine, ArrowRight, ArrowUpRight, Check, CheckCheck,
-  CircleHelp, Clock3, Command, FileSearch, FileText, Fingerprint,
+  ArrowDownToLine, ArrowRight, ArrowUpRight, Check,
+  CircleHelp, Command, FileSearch, FileText, Fingerprint,
   Globe2, Layers3, Link2, LoaderCircle, Menu, PanelLeftClose, Plus,
   Search, X,
 } from "lucide-react";
@@ -16,6 +16,7 @@ type Source = {
   title: string;
   identity: Identity;
   reason: string;
+  confidence_score?: number;
   claims: Claim[];
   retrieved_at: string;
   sha256: string;
@@ -25,6 +26,7 @@ type Report = {
   subject: { name: string; city: string; employer: string };
   sources: Source[];
   confirmed_findings: { summary: string; quote: string; url: string }[];
+  risk_flags?: string[];
   review_status: string;
   limitations: string[];
   errors: string[];
@@ -38,14 +40,14 @@ type Report = {
 type SavedRun = { id: string; created_at: number; expires_at: number; name: string; city: string; employer: string };
 
 const label: Record<Identity, string> = {
-  confirmed: "Strong match",
+  confirmed: "Strong identity match",
   possible: "Needs review",
   unrelated: "Different person",
 };
 
 function Brand() {
   return <div className="brand" aria-label="KYCX Adverse Media Check">
-    <div className="brand-type"><div className="original-wordmark"><Image src="/kycx-original-logo.png" width={4000} height={4000} alt="KYCX" priority/></div><small>ADVERSE MEDIA CHECK</small></div>
+    <div className="brand-type"><div className="original-wordmark"><Image src="/kycx-original-logo.png" width={4000} height={4000} alt="KYCX" priority/></div></div>
   </div>;
 }
 
@@ -66,6 +68,7 @@ export default function Home() {
   const [error, setError] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const resultRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -89,6 +92,7 @@ export default function Home() {
   }
 
   useEffect(() => { void refreshRuns(); }, []);
+  useEffect(() => { if (report) resultRef.current?.focus(); }, [report]);
 
   async function openRun(id: string) {
     setError("");
@@ -108,6 +112,8 @@ export default function Home() {
   }
 
   async function removeRun(id: string) {
+    const run = savedRuns.find((item) => item.id === id);
+    if (!window.confirm(`Delete the saved check for ${run?.name || "this person"}?`)) return;
     try {
       const response = await fetch(`/api/runs/${id}`, { method: "DELETE" });
       if (!response.ok) throw new Error("Could not delete saved run.");
@@ -123,7 +129,9 @@ export default function Home() {
     unrelated: sources.filter((source) => source.identity === "unrelated").length,
   };
   const filtered = sources.filter((source) => filter === "all" || source.identity === filter);
-  const current = sources[selected];
+  const current = filtered.find((source) => sources.indexOf(source) === selected);
+  const highestConfidence = sources.reduce<number | null>((highest, source) =>
+    source.confidence_score === undefined ? highest : Math.max(highest ?? 0, source.confidence_score), null);
 
   async function runResearch(event: FormEvent) {
     event.preventDefault();
@@ -146,7 +154,6 @@ export default function Home() {
       await refreshRuns();
       setSelected(0);
       setFilter("all");
-      window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Adverse media check failed. Try again.");
     } finally {
@@ -178,7 +185,7 @@ export default function Home() {
   function changeFilter(value: "all" | Identity) {
     setFilter(value);
     const first = sources.findIndex((source) => value === "all" || source.identity === value);
-    if (first >= 0) setSelected(first);
+    setSelected(first);
   }
 
   function startNew() {
@@ -207,22 +214,23 @@ export default function Home() {
       <div className="tech-hero"><div className="content"><h1>Adverse media check</h1></div></div>
 
       <div className="content">
-        <form className="search-panel" onSubmit={runResearch}><div className="search-panel-header"><div className="search-icon"><Search size={19}/></div><div><strong>Check a person</strong></div><span className="shortcut"><Command size={12}/> /</span></div><div className="search-fields"><label className="field field-name"><span>FULL NAME <em>*</em></span><input ref={inputRef} value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Jordan Example" autoComplete="off"/></label><label className="field"><span>CITY OR REGION <em>*</em></span><input value={city} onChange={(event) => setCity(event.target.value)} placeholder="e.g. Utrecht" autoComplete="off"/></label><label className="field"><span>EMPLOYER <small>FOR A STRONG MATCH</small></span><input value={employer} onChange={(event) => setEmployer(event.target.value)} placeholder="e.g. Example Studio" autoComplete="off"/></label><button className="search-submit" type="submit" disabled={running}>{running ? <LoaderCircle size={18} className="spin"/> : <ArrowRight size={18}/>}<span>{running ? "Checking" : "Run check"}</span></button></div></form>
+        <form className="search-panel" onSubmit={runResearch}><div className="search-panel-header"><div className="search-icon"><Search size={19}/></div><div><strong>Check a person</strong></div><span className="shortcut"><Command size={12}/> /</span></div><div className="search-fields"><label className="field field-name"><span>FULL NAME <em>*</em></span><input ref={inputRef} value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Jordan Example" autoComplete="off" required minLength={3}/></label><label className="field"><span>CITY OR REGION <em>*</em></span><input value={city} onChange={(event) => setCity(event.target.value)} placeholder="e.g. Utrecht" autoComplete="off" required minLength={2}/></label><label className="field"><span>EMPLOYER <small>FOR A STRONG MATCH</small></span><input value={employer} onChange={(event) => setEmployer(event.target.value)} placeholder="e.g. Example Studio" autoComplete="off"/></label><button className="search-submit" type="submit" disabled={running}>{running ? <LoaderCircle size={18} className="spin"/> : <ArrowRight size={18}/>}<span>{running ? "Checking" : "Run check"}</span></button></div></form>
 
 
         {error && <div className="error-banner" role="alert"><CircleHelp size={17}/><span>{error}</span><button onClick={() => setError("")} aria-label="Dismiss error"><X size={16}/></button></div>}
 
-        {running && <div className="running-panel"><LoaderCircle size={21} className="spin"/><div><strong>Adverse media check in progress</strong><span>Searching public sources, reading pages and checking identity clues. This can take a minute.</span></div></div>}
+        {running && <div className="running-panel" role="status" aria-live="polite"><LoaderCircle size={21} className="spin"/><div><strong>Check in progress</strong><span>Searching sources and assessing identity. This can take a minute.</span></div></div>}
 
         {report ? <>
-          <section className="case-heading"><div className="case-heading-left"><div className="case-avatar">{report.subject.name.split(" ").map((part) => part[0]).slice(0, 2).join("").toUpperCase()}</div><div><div className="case-title-line"><h2>{report.subject.name}</h2></div><div className="case-subline"><span><Globe2 size={14}/>{report.subject.city}</span>{report.subject.employer && <><i/><span>{report.subject.employer}</span></>}<i/><span><Clock3 size={14}/> Check draft</span></div></div></div><div className="case-actions"><button className="outline-button" onClick={downloadPdf} ><ArrowDownToLine size={16}/> Export draft</button></div></section>
+          <section className="case-heading"><div className="case-heading-left"><div className="case-avatar">{report.subject.name.split(" ").map((part) => part[0]).slice(0, 2).join("").toUpperCase()}</div><div><div className="case-title-line"><h2 ref={resultRef} tabIndex={-1}>{report.subject.name}</h2></div><div className="case-subline"><span><Globe2 size={14}/>{report.subject.city}</span>{report.subject.employer && <><i/><span>{report.subject.employer}</span></>}</div></div></div><div className="case-actions"><button className="outline-button" onClick={downloadPdf} ><ArrowDownToLine size={16}/> Export draft</button></div></section>
 
-          {report.metrics && <div className="run-metrics" aria-label="Check time and estimated provider cost"><span><strong>{report.metrics.total_seconds.toFixed(1)}s</strong> total</span><span>Search {report.metrics.search_seconds.toFixed(1)}s</span><span>Read {report.metrics.fetch_seconds.toFixed(1)}s</span><span>Assess {report.metrics.assess_seconds.toFixed(1)}s</span><span>{report.metrics.search_queries} searches · {report.metrics.model_calls} model calls</span><span>{report.metrics.estimated_usd === null ? "Cost unavailable" : `Est. provider cost $${report.metrics.estimated_usd.toFixed(3)}`}</span></div>}
+          <section className="result-summary" aria-label="Check summary"><div><strong>{report.confirmed_findings.length}</strong><span>linked adverse {report.confirmed_findings.length === 1 ? "finding" : "findings"}</span></div><div><strong>{highestConfidence === null ? "—" : `${highestConfidence}/3`}</strong><span>identity confidence</span></div><div><strong>{counts.possible}</strong><span>sources need identity review</span></div></section>
+          <div className="risk-summary"><strong>Risk flags</strong>{report.risk_flags?.length ? <ul>{report.risk_flags.map((flag) => <li key={flag}>{flag}</li>)}</ul> : <span>No flags from the sources reviewed</span>}<small>Identity confidence measures matching evidence, not the likelihood of misconduct.</small></div>
 
-          <section className="metrics-row" aria-label="Adverse media check overview"><div className="metric"><div className="metric-icon purple"><FileSearch size={18}/></div><div><span>SOURCES REVIEWED</span><strong>{sources.length.toString().padStart(2, "0")}</strong></div></div><div className="metric"><div className="metric-icon mint"><CheckCheck size={18}/></div><div><span>STRONG MATCHES</span><strong>{counts.confirmed.toString().padStart(2, "0")}</strong></div></div><div className="metric"><div className="metric-icon amber"><CircleHelp size={18}/></div><div><span>NEEDS REVIEW</span><strong>{counts.possible.toString().padStart(2, "0")}</strong></div></div><div className="metric"><div className="metric-icon slate"><X size={17}/></div><div><span>OTHER PEOPLE</span><strong>{counts.unrelated.toString().padStart(2, "0")}</strong></div></div></section>
+          {report.errors.length > 0 && <details className="coverage-details"><summary>{report.errors.length} {report.errors.length === 1 ? "source" : "sources"} could not be read</summary><ul>{report.errors.map((item, index) => <li key={index}>{item}</li>)}</ul></details>}
 
           <section className="results-section"><div className="section-heading"><div><h2 id="sources-heading">Source analysis <span className="section-count">{sources.length}</span></h2></div></div>
-            <div className="results-workspace"><div className="source-pane"><div className="source-pane-header"><span><Layers3 size={15}/> Sources</span></div><div className="filter-row">{(["all", "confirmed", "possible", "unrelated"] as const).map((value) => <button key={value} className={filter === value ? "filter active" : "filter"} onClick={() => changeFilter(value)}>{value === "all" ? "All" : value === "confirmed" ? "Matched" : value === "possible" ? "Review" : "Other"}</button>)}</div><div className="source-list">{filtered.length ? filtered.map((source) => { const index = sources.indexOf(source); return <button key={`${source.url}-${index}`} className={`source-item ${selected === index ? "selected" : ""}`} onClick={() => setSelected(index)}><div className="source-item-top"><span className={`source-mini-icon ${source.identity}`}><FileText size={15}/></span><span className="source-domain">{(() => { try { return new URL(source.url).hostname.replace(/^www\./, ""); } catch { return "SOURCE"; } })()}</span><ArrowUpRight size={14}/></div><strong>{source.title || "Untitled source"}</strong><div className="source-item-bottom"><StatusPill identity={source.identity}/><span>{source.claims.length} {source.claims.length === 1 ? "finding" : "findings"}</span></div></button>; }) : <div className="source-empty">No sources in this category.</div>}</div></div>
+            <div className="results-workspace"><div className="source-pane"><div className="source-pane-header"><span><Layers3 size={15}/> Sources</span></div><div className="filter-row">{(["all", "confirmed", "possible", "unrelated"] as const).map((value) => <button key={value} type="button" aria-pressed={filter === value} className={filter === value ? "filter active" : "filter"} onClick={() => changeFilter(value)}>{value === "all" ? `All ${sources.length}` : value === "confirmed" ? `Matched ${counts.confirmed}` : value === "possible" ? `Review ${counts.possible}` : `Other ${counts.unrelated}`}</button>)}</div><div className="source-list">{filtered.length ? filtered.map((source) => { const index = sources.indexOf(source); return <button key={`${source.url}-${index}`} type="button" aria-pressed={selected === index} className={`source-item ${selected === index ? "selected" : ""}`} onClick={() => setSelected(index)}><div className="source-item-top"><span className={`source-mini-icon ${source.identity}`}><FileText size={15}/></span><span className="source-domain">{(() => { try { return new URL(source.url).hostname.replace(/^www\./, ""); } catch { return "SOURCE"; } })()}</span></div><strong>{source.title || "Untitled source"}</strong><div className="source-item-bottom"><StatusPill identity={source.identity}/><span>{source.claims.length} {source.claims.length === 1 ? "finding" : "findings"}</span></div></button>; }) : <div className="source-empty">No sources in this category.</div>}</div></div>
 
               <div className="detail-pane">{current ? <><div className="detail-topline"><span>SOURCE {String(selected + 1).padStart(2, "0")} <span>/</span> {String(sources.length).padStart(2, "0")}</span><span className="detail-updated">Retrieved {new Date(current.retrieved_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span></div><div className="detail-title-row">
   <div className="detail-title-content">
@@ -230,7 +238,9 @@ export default function Home() {
     <h3><a className="source-title-link" href={current.url} target="_blank" rel="noopener noreferrer">{current.title || "Untitled source"}<ArrowUpRight size={17}/></a></h3>
   </div>
   <a className="open-source-button" href={current.url} target="_blank" rel="noopener noreferrer">Open source <ArrowUpRight size={15}/></a>
-</div><div className="identity-assessment"><div className="assessment-header"><div><Fingerprint size={18}/><span>IDENTITY ASSESSMENT</span></div><StatusPill identity={current.identity}/></div><p>{current.reason || "No explanation returned."}</p><div className="assessment-foot"><span className={`assessment-indicator ${current.identity}`}/>{current.identity === "confirmed" ? "Name, city and employer found in source" : current.identity === "possible" ? "More evidence needed before linking findings" : "Not linked to the researched person"}</div></div><div className="findings-head"><div><span className="purple-bar"/><h4>Source findings</h4><span>{current.claims.length}</span></div><small>Only verbatim supported claims are shown</small></div>{current.claims.length ? <div className="claims-list">{current.claims.map((claim, index) => <div className="claim-card" key={index}><div className="claim-number">{String(index + 1).padStart(2, "0")}</div><div><strong>{claim.summary}</strong><div className="quote"><span>“</span>{claim.quote}<span>”</span></div><div className="claim-verified"><Check size={13}/> Quote found on source page</div></div></div>)}</div> : <div className="no-findings"><FileSearch size={25}/><strong>No findings linked</strong><span>{current.identity === "possible" ? "This source needs an analyst’s identity check before any claims can be used." : current.identity === "unrelated" ? "This source appears to describe someone else." : "No supported claims were extracted from this source."}</span></div>}<div className="source-meta"><div className="source-url"><Link2 size={13}/><a href={current.url} target="_blank" rel="noopener noreferrer">{current.url}</a></div><span>SHA-256: {current.sha256.slice(0, 12)}…</span></div></> : <div className="detail-empty"><FileSearch size={30}/><h3>No readable sources found</h3><p>Search coverage may be incomplete. Try adding another identity clue or review sources manually.</p></div>}</div></div></section>
+</div><div className="identity-assessment"><div className="assessment-header"><div><Fingerprint size={18}/><span>IDENTITY ASSESSMENT</span></div><StatusPill identity={current.identity}/></div><p>{current.reason || "No explanation returned."}</p><div className="assessment-foot"><span className={`assessment-indicator ${current.identity}`}/>{current.confidence_score === undefined ? "Identity confidence unavailable for this saved check" : `Identity confidence ${current.confidence_score}/3 · ${current.identity === "confirmed" ? "name, city and employer linked" : current.identity === "possible" ? "more identity evidence needed" : "different person"}`}</div></div><div className="findings-head"><div><span className="purple-bar"/><h4>Source findings</h4><span>{current.claims.length}</span></div><small>Only verbatim supported claims are shown</small></div>{current.claims.length ? <div className="claims-list">{current.claims.map((claim, index) => <div className="claim-card" key={index}><div className="claim-number">{String(index + 1).padStart(2, "0")}</div><div><strong>{claim.summary}</strong><div className="quote"><span>“</span>{claim.quote}<span>”</span></div><div className="claim-verified"><Check size={13}/> Quote found on source page</div></div></div>)}</div> : <div className="no-findings"><FileSearch size={25}/><strong>No findings linked</strong><span>{current.identity === "possible" ? "This source needs an analyst’s identity check before any claims can be used." : current.identity === "unrelated" ? "This source appears to describe someone else." : "No supported claims were extracted from this source."}</span></div>}<div className="source-meta"><div className="source-url"><Link2 size={13}/><a href={current.url} target="_blank" rel="noopener noreferrer">{current.url}</a></div><span>SHA-256: {current.sha256.slice(0, 12)}…</span></div></> : <div className="detail-empty"><FileSearch size={30}/><h3>{filtered.length === 0 && sources.length > 0 ? "No sources in this category" : "No readable sources found"}</h3><p>{filtered.length === 0 && sources.length > 0 ? "Choose another filter to view a source." : "Try adding another identity clue and run the check again."}</p></div>}</div></div></section>
+
+          {report.metrics && <details className="run-metrics"><summary>Run details</summary><div className="run-metrics-values"><span><strong>{report.metrics.total_seconds.toFixed(1)}s</strong> total</span><span>Search {report.metrics.search_seconds.toFixed(1)}s</span><span>Read {report.metrics.fetch_seconds.toFixed(1)}s</span><span>Assess {report.metrics.assess_seconds.toFixed(1)}s</span><span>{report.metrics.search_queries} searches · {report.metrics.model_calls} model calls</span><span>{report.metrics.estimated_usd === null ? "Cost unavailable" : `Est. provider cost $${report.metrics.estimated_usd.toFixed(3)}`}</span></div></details>}
 
 
         </> : null}

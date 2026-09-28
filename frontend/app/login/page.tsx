@@ -7,7 +7,7 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
   return <main className="login-shell">
     <section className="login-form-side">
       <div className="login-card">
-        <div className="login-topline"><div className="login-brand-type"><div className="original-wordmark"><Image src="/kycx-original-logo.png" width={4000} height={4000} alt="KYCX" priority/></div><small>ADVERSE MEDIA CHECK</small></div></div>
+        <div className="login-topline"><div className="login-brand-type"><div className="original-wordmark"><Image src="/kycx-original-logo.png" width={4000} height={4000} alt="KYCX" priority/></div></div></div>
         <h1>Sign in</h1>
         <form action="/api/login" method="post">
           <label htmlFor="email">EMAIL ADDRESS</label>

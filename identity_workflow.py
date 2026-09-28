@@ -235,6 +235,18 @@ def assess(state: ResearchState) -> dict:
             or not employer or employer not in lower
         ):
             identity = "possible"
+        # Evidence tiers, not statistical probabilities. A possible match is
+        # capped below the strong tier even when all clues appear on a page.
+        if identity == "unrelated":
+            confidence_score = 0
+        elif identity == "confirmed":
+            confidence_score = 3
+        elif full_name in lower and city and city in lower:
+            confidence_score = 2
+        elif full_name in lower:
+            confidence_score = 1
+        else:
+            confidence_score = 0
         claims = []
         if identity == "confirmed":
             for claim in data.get("claims", [])[:5]:
@@ -244,6 +256,7 @@ def assess(state: ResearchState) -> dict:
         assessments.append({
             "url": page["url"], "title": page["title"], "identity": identity,
             "reason": str(data.get("reason", "")), "claims": claims,
+            "confidence_score": confidence_score,
             "retrieved_at": page["retrieved_at"], "sha256": page["sha256"],
         })
     return {"assessments": assessments, "metrics": {
@@ -260,6 +273,13 @@ def assemble(state: ResearchState) -> dict:
     assessments = state.get("assessments", [])
     metrics = state.get("metrics", {})
     model = os.environ.get("IDENTITY_MODEL", "gpt-4.1-mini")
+    risk_flags = []
+    if any(item["identity"] == "confirmed" and item["claims"] for item in assessments):
+        risk_flags.append("Linked adverse reporting")
+    if any(item["identity"] == "possible" for item in assessments):
+        risk_flags.append("Identity needs review")
+    if state.get("errors"):
+        risk_flags.append("Source coverage gap")
     # Starter Serper credits and standard GPT-4.1 mini rates; the actual invoice
     # depends on the purchased plan, cache hits, and provider billing.
     estimated_usd = None
@@ -279,6 +299,7 @@ def assemble(state: ResearchState) -> dict:
             for item in assessments if item["identity"] == "confirmed"
             for c in item["claims"]
         ],
+        "risk_flags": risk_flags,
         "review_status": "awaiting_human_review",
         "limitations": ["Public web coverage is incomplete", "Identity matches require analyst review"],
         "errors": state.get("errors", []),
