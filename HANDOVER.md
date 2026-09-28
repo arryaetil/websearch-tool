@@ -22,6 +22,8 @@
 - Any results generated before the stronger matching rule, including the user's earlier Albert Bril check, should be reviewed again under the new rule before relying on a person link.
 - Useful open-source candidates: Trafilatura for article text extraction; RapidFuzz for name-variant candidate generation only; Crawl4AI for a browser fallback; OpenSanctions yente for a separate sanctions screening module. Check data licenses separately from code licenses before using OpenSanctions data commercially.
 - [plutopulp/adverse-media-screening](https://github.com/plutopulp/adverse-media-screening) is a close application reference: it screens one analyst-supplied article URL against person details and explains matching. It does not replace KYCX's multi-source discovery and saves results by default. The README calls it a technical assessment, and a clear code license was not visible in the repository root; do not copy code into KYCX without checking permission.
+- [kingsleyweb-tech/OSINT-APP](https://github.com/kingsleyweb-tech/OSINT-APP) is a person-research reference for collecting profiles and clustering likely identities. It uses SerpApi and persists investigations in Firebase, so it conflicts with KYCX's current Serper integration and no-history decision. Its license needs checking before copying code. Reuse the ideas of identity clusters and corroborating attributes, not its storage or search stack wholesale.
+- [alephdata/aleph](https://github.com/alephdata/aleph) is a mature investigative document and entity platform, suited to large internal corpora rather than this lightweight check workflow. Its code is MIT-licensed, but deployment and integration would be substantial.
 
 ## Benchmark so far
 
@@ -45,7 +47,7 @@
 
 ## Validation
 
-- `python -m pytest -q test_api.py test_identity_workflow.py` — ten passing tests after the JSON request fix.
+- `python -m pytest -q test_api.py test_identity_workflow.py` — eleven passing tests after the identity rule and JSON request fixes.
 - `cd frontend; npm run build` — passed after adding the metrics display.
 - The deployed frontend and backend versions before the instrumentation both reached Railway `SUCCESS`.
 
