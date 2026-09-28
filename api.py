@@ -3,6 +3,8 @@
 from io import BytesIO
 import asyncio
 from contextlib import asynccontextmanager, suppress
+from datetime import date
+from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -46,6 +48,9 @@ class ResearchRequest(BaseModel):
     city: str = Field(min_length=2, max_length=120)
     employer: str = Field(default="", max_length=160)
     context: str = Field(default="", max_length=300)
+    # A year, not a full date: enough to compare with ages in reports and sanctions lists.
+    birth_year: int | None = Field(default=None, ge=1900, le=date.today().year)
+    profession: Literal["healthcare", "lawyer", "other", "unknown"] = "unknown"
 
 
 class PdfRequest(BaseModel):
@@ -62,7 +67,8 @@ def health():
 def research(request: ResearchRequest):
     try:
         report = dict(run_identity_research(
-            request.name, request.city, request.employer, request.context
+            request.name, request.city, request.employer, request.context,
+            birth_year=request.birth_year, profession=request.profession,
         ))
     except (ValueError, RuntimeError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

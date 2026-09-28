@@ -21,6 +21,20 @@ def generate_evidence_pdf(report: dict, analyst: str = "") -> bytes:
     story.append(Paragraph(f"Analyst: {escape(analyst or 'Not specified')}", styles["Normal"]))
     story.append(Spacer(1, 5 * mm))
     story.append(Paragraph("Requires human review before any decision.", styles["Heading2"]))
+    if "flags" in report:
+        story.append(Paragraph("Risk flags", styles["Heading2"]))
+        for flag in report["flags"]:
+            story.append(Paragraph(
+                f"{escape(flag.get('group', '').title())}: {escape(flag.get('label', ''))} ({escape(flag.get('reason', ''))})",
+                styles["Normal"]))
+        if not report["flags"]:
+            story.append(Paragraph("No flags in the sources searched. This is not a clearance.", styles["Normal"]))
+    if report.get("coverage"):
+        story.append(Paragraph("Coverage", styles["Heading2"]))
+        for entry in report["coverage"]:
+            story.append(Paragraph(
+                f"{escape(entry.get('label', ''))}: {escape(entry.get('status', ''))}. {escape(entry.get('detail', ''))}",
+                styles["Normal"]))
     story.append(Paragraph("Source assessments", styles["Heading2"]))
     for source in report.get("sources", []):
         story.append(Paragraph(escape(source.get("title") or source.get("url", "")), styles["Heading3"]))
