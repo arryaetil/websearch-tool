@@ -19,6 +19,23 @@ PROFESSION_TERMS = {
 
 STRONG_ANCHORS = ("employer", "age", "profession")
 
+# Common Dutch roepnamen. Each group links a formal given name to everyday forms.
+NICKNAME_GROUPS = (
+    ("albert", "albertus", "appie", "ab", "bert"), ("johannes", "johan", "jan", "hans", "joop", "hannes"),
+    ("cornelis", "kees", "cor", "cees"), ("hendrik", "henk", "rik", "henny"), ("gerardus", "gerard", "gert", "ger", "gerrit"),
+    ("jacobus", "jacob", "jaap", "koos", "co"), ("petrus", "pieter", "piet", "peter"), ("wilhelmus", "willem", "wim", "pim"),
+    ("adrianus", "adriaan", "arie", "adri"), ("theodorus", "theo", "dorus"), ("antonius", "anton", "toon", "ton", "teun"),
+    ("franciscus", "frans", "frank", "sjaak"), ("josephus", "joseph", "jozef", "jos", "sjef"), ("martinus", "martin", "tinus", "maarten"),
+    ("nicolaas", "klaas", "niek", "nico"), ("everardus", "evert", "eef"), ("bernardus", "bernard", "ben", "bennie", "bert"),
+    ("johanna", "jo", "hanna", "hanneke", "anneke"), ("maria", "marie", "mies", "mieke", "ria"), ("wilhelmina", "willemien", "mien", "wil", "mina"),
+    ("elisabeth", "elizabeth", "els", "lies", "liesbeth", "betty"), ("catharina", "catrien", "karin", "tineke", "trien"),
+    ("cornelia", "corrie", "nel", "neeltje"), ("geertruida", "truus", "trudy", "geertje"), ("margaretha", "margriet", "greet", "grietje"),
+)
+
+
+def nicknames(given: str) -> set[str]:
+    return {name for group in NICKNAME_GROUPS if given in group for name in group} - {given}
+
 
 def normalize(text: str) -> str:
     text = unicodedata.normalize("NFKD", text or "")
@@ -63,6 +80,9 @@ def name_variants(full_name: str) -> tuple[list[str], list[str]]:
         full.append(f"{surname}, {given} {prefix}")
     stub = f"{prefix} {surname[0]}".strip()
     partial = [f"{given} {stub}.", f"{given} {stub}"]
+    # A roepnaam ("Appie" for Albert) is weaker than the given name: always partial.
+    for nickname in nicknames(given):
+        partial += [f"{nickname} {tail}", f"{nickname} {stub}.", f"{nickname} {stub}"]
     return list(dict.fromkeys(full)), list(dict.fromkeys(partial))
 
 
@@ -80,7 +100,7 @@ def compare_name(subject_name: str, written: str | None, text: str) -> str:
         seen_first, _, seen_surname = split_name(written)
         if seen_surname == surname and seen_first and first:
             other = seen_first[0].rstrip(".")
-            if len(other) > 1 and other != first[0]:
+            if len(other) > 1 and other != first[0] and other not in nicknames(first[0]):
                 return "conflict"
     if any(_contains(body, v) for v in full):
         return "full"

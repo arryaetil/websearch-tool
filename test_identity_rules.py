@@ -24,6 +24,12 @@ class NameTests(unittest.TestCase):
         self.assertEqual(compare_name("Jan de Vries", None, "Jan de V. (54) uit Zwolle"), "partial")
         self.assertEqual(compare_name("Albert Bril", None, "Albert Brill"), "absent")
 
+    def test_roepnaam_is_a_partial_name_not_a_conflict(self):
+        self.assertEqual(compare_name("Albert Bril", "Appie B.", "Makelaar Appie B. uit Bergentheim"), "partial")
+        self.assertEqual(compare_name("Albert Bril", "Appie Bril", "Appie Bril uit Bergentheim"), "partial")
+        self.assertEqual(compare_name("Appie Bril", None, "Albert Bril sprak"), "partial")
+        self.assertEqual(compare_name("Albert Bril", None, "Appie de Groot"), "absent")
+
     def test_other_first_name_conflicts(self):
         self.assertEqual(compare_name("Albert Bril", "Peter Bril", "Peter Bril sprak"), "conflict")
 
