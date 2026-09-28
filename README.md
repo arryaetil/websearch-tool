@@ -1,6 +1,6 @@
 # KYCX Adverse Media Check — evidence-first MVP
 
-KYCX is an adverse media check prototype with a Next.js interface and a Python FastAPI/LangGraph backend. The app uses the original project's KYCX wordmark alongside a simple eye mark. The login and dashboard use official IBC group technology artwork and the unaltered white IBC group logo from the September 2026 brand asset ZIPs. Night/Seasalt foundations, Ubuntu typography and restrained blue/violet accents follow the IBC group brand guide. The company-research Streamlit prototype remains in `app.py`.
+KYCX is an adverse media check prototype with a Next.js interface and a Python FastAPI/LangGraph backend. The app uses the original project's KYCX wordmark. The login and dashboard use official IBC group technology artwork and the unaltered white IBC group logo from the September 2026 brand asset ZIPs. Night/Seasalt foundations, Ubuntu typography and restrained blue/violet accents follow the IBC group brand guide. The company-research Streamlit prototype remains in `app.py`.
 
 ## Local start
 
@@ -25,13 +25,13 @@ $env:KYCX_SESSION_SECRET = "a-separate-long-random-secret"
 npm run dev
 ```
 
-Open `http://localhost:3000` and sign in as `admin@etil.nl` with the configured password. The workspace contains a clearly labeled fictional sample case. Live checks require both `SERPER_API_KEY` and `OPENAI_API_KEY` in the backend environment. Do not put keys in `NEXT_PUBLIC_` variables or commit `.env` files.
+Open `http://localhost:3000` and sign in as `admin@etil.nl` with the configured password. Live checks require both `SERPER_API_KEY` and `OPENAI_API_KEY` in the backend environment. Do not put keys in `NEXT_PUBLIC_` variables or commit `.env` files.
 
 ## Session-only privacy behavior
 
 - No search history or research database is created by this prototype. The result exists in browser memory until refresh or navigation.
 - The single-admin login uses a signed, HttpOnly, eight-hour cookie. The cookie contains an expiry and signature, not research content. This basic gate does not provide per-user accounts, audit trails or rate limiting.
-- The old Streamlit audit-file writes have been removed. The sidebar shows a fictional walkthrough, not a record of past searches.
+- The old Streamlit audit-file writes have been removed. The sidebar does not show past searches.
 - The research and PDF API responses use `Cache-Control: no-store`; the Docker backend disables HTTP access logs. PDF files are saved only when the analyst explicitly downloads one.
 - This does **not** mean there is no personal-data processing. Serper receives search queries, the model provider receives selected source text and identity clues, and hosting/provider logs or retention policies may still apply. Review the provider contracts, data locations, legal basis, notification duties, and source categories before real client use.
 - Storing reviewed reports in a later version is a separate product and legal decision. Define a purpose, access rules and a justified retention period first; some client obligations may require retention.
@@ -49,7 +49,7 @@ npm run build
 1. Serper searches for public adverse reporting using the full name and supplied city, plus an employer or general identity query.
 2. The backend reads up to eight public HTML pages. Search snippets are never treated as evidence.
 3. LangGraph runs search, fetch, identity assessment and report assembly.
-4. A page is only marked `confirmed` if the full name and another supplied clue occur in the page text and the model assessment agrees. Initials alone never confirm identity.
+4. A page is only marked `confirmed` if the full name, supplied city and supplied employer occur in the page text and the model assessment links them to the same person. Without an employer, matches remain `possible`. Initials alone never confirm identity. A strong match still requires human review.
 5. Claims appear only for confirmed matches, with an exact quote present in the retrieved page.
 6. The result and PDF are labeled as drafts for human review. There is no automatic risk score or eligibility decision.
 
@@ -70,7 +70,7 @@ The frontend's `/api/research` and `/api/report` routes call the backend from th
 
 - `frontend/app/page.tsx` — search and source-review interface
 - `frontend/app/globals.css` — visual system and responsive layouts
-- `frontend/app/icon.svg` — vector eye mark
+- `frontend/app/icon.svg` — KYCX favicon
 - `frontend/app/login/page.tsx`, `frontend/auth.ts`, `frontend/proxy.ts` — single-admin login and route gate
 - `frontend/app/api/*` — server-side proxy routes
 - `api.py` — FastAPI service

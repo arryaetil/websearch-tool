@@ -14,8 +14,12 @@
 
 - Purpose: adverse media checks on a person, with strong identity matching and source-linked evidence. Search snippets are leads, not findings. Human review is required.
 - The app does not store past research runs. Reports exist only in browser memory unless an analyst exports a PDF. Provider and hosting retention still need review before client use.
-- Interface copy should be sparse and useful. Official, unaltered IBC logo and technology image are included; Ubuntu and selected IBC colors are used. The user wants the `npxskillui` extraction workflow for the **next frontend design pass**. It was not used to build the current frontend.
+- Interface copy should be sparse and useful. Official, unaltered IBC logo and technology image are included; Ubuntu and selected IBC colors are used. The original frontend was built manually; the later source-link pass used `npxskillui` as the user requested.
 - Crawl4AI is currently an opt-in fallback when a page has little HTML. It may help with JavaScript rendering and difficult layouts. Do not represent CAPTCHA or paywall bypass as a reliable source path; prefer a permitted API, license, or manual review.
+- A later frontend pass used `npx skillui@1.3.4` to extract an Attio design reference into the ignored local `skillui-reference/` folder. The source link uses a visible action, linked title and wrapping URL. Do not copy Attio branding over IBC branding.
+- The sidebar now contains only the KYCX wordmark, New check and official IBC attribution. The non-functional Sources item and sample walkthrough were removed; the app starts with an empty search form. The eye was removed from the dashboard and favicon.
+- Full name plus city alone is now only a candidate match. A strong match requires the supplied full name, city and employer in the source plus the model's same-person assessment. This deliberately lowers recall when no employer is supplied. The UI says “Strong match” rather than “Confirmed match”; human review remains necessary. Source corroboration across independent pages and additional identifiers such as birth year or role are future work.
+- Useful open-source candidates: Trafilatura for article text extraction; RapidFuzz for name-variant candidate generation only; Crawl4AI for a browser fallback; OpenSanctions yente for a separate sanctions screening module. Check data licenses separately from code licenses before using OpenSanctions data commercially.
 
 ## Benchmark so far
 

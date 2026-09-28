@@ -188,8 +188,10 @@ must add a sourced fact. Name the actor and action when the source does. Avoid
 stock introductions, dramatic closers, vague associations and inflated language.
 Do not add a name, date, outcome or legal conclusion that the source does not state.
 Keep summaries concise. The exact_quote field must remain verbatim source text.
-Only mark confirmed when the full name and at least one independent supplied clue
-(city or employer) are explicitly supported in the page. Initials alone never confirm.
+Only mark confirmed when the full name, supplied city and supplied employer
+are explicitly linked to the same person in the page. If no employer was supplied,
+the strongest possible result is possible. Name plus city alone is insufficient.
+Initials alone never confirm.
 If clues conflict, mark unrelated. If evidence is insufficient, mark possible.
 Extract claims only about potentially adverse public reporting, such as allegations,
 investigations, sanctions or confirmed misconduct. Exclude ordinary biographical and
@@ -226,9 +228,12 @@ def assess(state: ResearchState) -> dict:
         # A model verdict is never sufficient without these deterministic checks.
         lower = page["content"].casefold()
         full_name = state["name"].strip().casefold()
-        clues = [state.get("city", ""), state.get("employer", "")]
-        clue_found = any(c.strip().casefold() in lower for c in clues if c.strip())
-        if identity == "confirmed" and (full_name not in lower or not clue_found):
+        city = state.get("city", "").strip().casefold()
+        employer = state.get("employer", "").strip().casefold()
+        if identity == "confirmed" and (
+            full_name not in lower or not city or city not in lower
+            or not employer or employer not in lower
+        ):
             identity = "possible"
         claims = []
         if identity == "confirmed":

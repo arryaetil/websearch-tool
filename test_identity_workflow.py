@@ -13,13 +13,13 @@ class IdentityWorkflowTests(unittest.TestCase):
             "retrieved_at": "2026-01-01T00:00:00Z", "sha256": "abc",
         }
 
-    def assess_with_model(self, content, model_result):
+    def assess_with_model(self, content, model_result, employer=""):
         client = MagicMock()
         client.responses.create.return_value.output_text = json.dumps(model_result)
         client.responses.create.return_value.usage = None
         with patch.dict("identity_workflow.os.environ", {"OPENAI_API_KEY": "test-key"}), patch("identity_workflow.OpenAI", return_value=client):
             return assess({
-                "name": "Alex Jansen", "city": "Utrecht", "employer": "",
+                "name": "Alex Jansen", "city": "Utrecht", "employer": employer,
                 "pages": [self.page(content)],
             })["assessments"][0]
 
@@ -49,13 +49,23 @@ class IdentityWorkflowTests(unittest.TestCase):
         )
         self.assertEqual(item["identity"], "possible")
 
+    def test_name_and_city_without_employer_do_not_confirm(self):
+        item = self.assess_with_model(
+            "Alex Jansen lives in Utrecht and is under investigation.",
+            {"identity": "confirmed", "reason": "name and city", "claims": [
+                {"summary": "An investigation was reported.", "exact_quote": "is under investigation"}
+            ]},
+        )
+        self.assertEqual(item["identity"], "possible")
+        self.assertEqual(item["claims"], [])
+
     def test_only_exact_evidence_is_kept(self):
         item = self.assess_with_model(
-            "A report says Alex Jansen of Utrecht is under investigation for fraud.",
-            {"identity": "confirmed", "reason": "name and city", "claims": [
+            "A report says Alex Jansen of Example Studio in Utrecht is under investigation for fraud.",
+            {"identity": "confirmed", "reason": "name, city and employer", "claims": [
                 {"summary": "The report says an investigation is ongoing.", "exact_quote": "under investigation for fraud"},
                 {"summary": "Fraud", "exact_quote": "convicted of bribery"},
-            ]},
+            ]}, employer="Example Studio",
         )
         self.assertEqual(item["identity"], "confirmed")
         self.assertEqual(len(item["claims"]), 1)

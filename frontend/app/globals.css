@@ -74,3 +74,15 @@
 .login-card h1{text-align:center}
 .login-brand-footer{justify-content:center;gap:14px}
 .run-metrics{display:flex;flex-wrap:wrap;gap:7px 18px;margin:0 0 18px;padding:12px 16px;border:1px solid #303641;border-radius:9px;background:#171b22;color:#aeb5c2;font-size:11px}.run-metrics strong{color:#f8f9fa;font-weight:700}
+.sidebar-top .brand{gap:0}
+.detail-title-content{min-width:0;flex:1}
+.source-title-link{display:inline-flex;align-items:baseline;gap:8px;color:#f5f6fa;text-decoration:none;overflow-wrap:anywhere}
+.source-title-link svg{flex:none;position:relative;top:2px;color:#93aaff}
+.source-title-link:hover,.source-title-link:focus-visible{color:#c9d8ff;text-decoration:underline;text-underline-offset:3px}
+.open-source-button{display:inline-flex;align-items:center;justify-content:center;gap:7px;flex:none;min-height:34px;padding:0 11px;border:1px solid #536aa5;border-radius:7px;background:#202b48;color:#e4ecff;font-size:11px;font-weight:650;text-decoration:none;white-space:nowrap}
+.open-source-button:hover,.open-source-button:focus-visible{background:#2b3b63;border-color:#7797ed}
+.source-meta .source-url{display:flex;align-items:flex-start;gap:6px;min-width:0;max-width:100%}
+.source-meta .source-url svg{flex:none;margin-top:2px}
+.source-meta .source-url a{min-width:0;color:#a8beff;text-decoration:underline;text-underline-offset:2px;overflow-wrap:anywhere;word-break:break-word}
+.source-meta .source-url a:hover,.source-meta .source-url a:focus-visible{color:#d7e2ff}
+@media(max-width:680px){.detail-title-row{flex-wrap:wrap}.open-source-button{width:100%}}
