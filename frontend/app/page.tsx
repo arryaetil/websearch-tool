@@ -21,6 +21,7 @@ type Source = {
   sha256: string;
 };
 type Report = {
+  saved_run?: { id: string; created_at: number; expires_at: number };
   subject: { name: string; city: string; employer: string };
   sources: Source[];
   confirmed_findings: { summary: string; quote: string; url: string }[];
@@ -34,6 +35,7 @@ type Report = {
     estimated_usd: number | null;
   };
 };
+type SavedRun = { id: string; created_at: number; expires_at: number; name: string; city: string; employer: string };
 
 const label: Record<Identity, string> = {
   confirmed: "Strong match",
@@ -56,6 +58,8 @@ export default function Home() {
   const [city, setCity] = useState("");
   const [employer, setEmployer] = useState("");
   const [report, setReport] = useState<Report | null>(null);
+  const [savedRuns, setSavedRuns] = useState<SavedRun[]>([]);
+  const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [selected, setSelected] = useState(0);
   const [filter, setFilter] = useState<"all" | Identity>("all");
   const [running, setRunning] = useState(false);
@@ -76,6 +80,41 @@ export default function Home() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  async function refreshRuns() {
+    try {
+      const response = await fetch("/api/runs", { cache: "no-store" });
+      if (response.ok) setSavedRuns((await response.json()).runs);
+    } catch { /* The current check remains usable if history is unavailable. */ }
+  }
+
+  useEffect(() => { void refreshRuns(); }, []);
+
+  async function openRun(id: string) {
+    setError("");
+    try {
+      const response = await fetch(`/api/runs/${id}`, { cache: "no-store" });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.detail || "Could not open saved run.");
+      setReport(payload as Report);
+      setActiveRunId(id);
+      setName(payload.subject.name);
+      setCity(payload.subject.city);
+      setEmployer(payload.subject.employer || "");
+      setSelected(0);
+      setFilter("all");
+      setSidebarOpen(false);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not open saved run."); }
+  }
+
+  async function removeRun(id: string) {
+    try {
+      const response = await fetch(`/api/runs/${id}`, { method: "DELETE" });
+      if (!response.ok) throw new Error("Could not delete saved run.");
+      if (activeRunId === id) { setReport(null); setActiveRunId(null); }
+      await refreshRuns();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not delete saved run."); }
+  }
 
   const sources = report?.sources ?? [];
   const counts = {
@@ -103,6 +142,8 @@ export default function Home() {
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.detail || "Adverse media check failed.");
       setReport(payload as Report);
+      setActiveRunId(payload.saved_run?.id ?? null);
+      await refreshRuns();
       setSelected(0);
       setFilter("all");
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -142,6 +183,7 @@ export default function Home() {
 
   function startNew() {
     setReport(null);
+    setActiveRunId(null);
     setName("");
     setCity("");
     setEmployer("");
@@ -155,6 +197,7 @@ export default function Home() {
       <div className="sidebar-top"><Brand/><button className="icon-button sidebar-close" onClick={() => setSidebarOpen(false)} aria-label="Close menu"><PanelLeftClose size={18}/></button></div>
 
       <button className="new-research" onClick={startNew}><Plus size={17}/> New check</button>
+      <div className="saved-runs"><div className="saved-runs-header">Saved checks <span>{savedRuns.length}</span></div><div className="saved-runs-list">{savedRuns.map((run) => <div className="saved-run" key={run.id}><button className="saved-run-open" onClick={() => void openRun(run.id)}><strong>{run.name}</strong><small>{run.city} · {new Date(run.created_at * 1000).toLocaleDateString("en-GB")}</small></button><button className="saved-run-delete" onClick={() => void removeRun(run.id)} aria-label={`Delete check for ${run.name}`} title="Delete saved check"><X size={14}/></button></div>)}</div>{savedRuns.length > 0 && <button className="saved-runs-clear" onClick={async () => { if (!window.confirm("Delete all saved checks?")) return; try { const response = await fetch("/api/runs", { method: "DELETE" }); if (!response.ok) throw new Error("Could not delete saved checks."); setReport(null); setActiveRunId(null); await refreshRuns(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not delete saved checks."); } }}>Delete all checks</button>}</div>
       <div className="sidebar-bottom"><div className="sidebar-separator"/><div className="powered-by"><span>POWERED BY</span><Image src="/ibc-group-official.png" width={108} height={49} alt="ibc group"/></div></div>
     </aside>
     {sidebarOpen && <button className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} aria-label="Close menu"/>}

@@ -1,6 +1,8 @@
 """HTTP boundary for the evidence-first research workflow."""
 
 from io import BytesIO
+import asyncio
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -8,8 +10,27 @@ from pydantic import BaseModel, Field
 
 from evidence_pdf import generate_evidence_pdf
 from identity_workflow import run_identity_research
+from run_store import delete_all_runs, delete_run, get_run, list_runs, prune_runs, save_run
 
-app = FastAPI(title="KYCX Research API", docs_url=None, redoc_url=None)
+
+async def _cleanup_runs():
+    while True:
+        await asyncio.to_thread(prune_runs)
+        await asyncio.sleep(3600)
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    cleanup_task = asyncio.create_task(_cleanup_runs())
+    try:
+        yield
+    finally:
+        cleanup_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await cleanup_task
+
+
+app = FastAPI(title="KYCX Research API", docs_url=None, redoc_url=None, lifespan=lifespan)
 
 
 @app.middleware("http")
@@ -40,13 +61,40 @@ def health():
 @app.post("/research")
 def research(request: ResearchRequest):
     try:
-        return run_identity_research(
+        report = dict(run_identity_research(
             request.name, request.city, request.employer, request.context
-        )
+        ))
+        report["saved_run"] = save_run(report)
+        return report
     except (ValueError, RuntimeError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Research provider failed: {type(exc).__name__}") from exc
+
+
+@app.get("/runs")
+def runs():
+    return {"runs": list_runs()}
+
+
+@app.get("/runs/{run_id}")
+def run_detail(run_id: str):
+    report = get_run(run_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail="Saved run not found or expired.")
+    return report
+
+
+@app.delete("/runs/{run_id}")
+def remove_run(run_id: str):
+    if not delete_run(run_id):
+        raise HTTPException(status_code=404, detail="Saved run not found or expired.")
+    return {"deleted": True}
+
+
+@app.delete("/runs")
+def clear_runs():
+    return {"deleted": delete_all_runs()}
 
 
 @app.post("/report.pdf")

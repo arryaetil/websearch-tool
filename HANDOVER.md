@@ -13,11 +13,13 @@
 ## Product decisions
 
 - Purpose: adverse media checks on a person, with strong identity matching and source-linked evidence. Search snippets are leads, not findings. Human review is required.
-- The app does not store past research runs. Reports exist only in browser memory unless an analyst exports a PDF. Provider and hosting retention still need review before client use.
+- The user now authorizes short-lived evaluation storage. New code stores successful reports in SQLite for seven days, max 100, with reopen/delete/clear controls. Railway volume `d749466d-fd9d-471b-b959-eb398b063b92` is attached to private `kycx-api` at `/data`, and `KYCX_RUN_DB=/data/research_runs.sqlite3` is set. Confirm deployment status before telling the user it is live. The shared admin credential exposes all saved runs to every holder; this remains a controlled evaluation feature.
+- The user requested OSINT brainstorming with LangGraph central. No OSINT source was integrated. `OSINT_PLAN.md` lists source candidates, graph nodes, evaluation criteria and governance questions. A username or online account is only a lead, not evidence of misconduct or person identity.
+- The user requested more liquid-glass visual style. The current local CSS pass adds translucent structural surfaces and blue/violet depth while keeping source reading text on an opaque plane. Confirm deployment and visual QA.
 - Interface copy should be sparse and useful. Official, unaltered IBC logo and technology image are included; Ubuntu and selected IBC colors are used. The original frontend was built manually; the later source-link pass used `npxskillui` as the user requested.
 - Crawl4AI is currently an opt-in fallback when a page has little HTML. It may help with JavaScript rendering and difficult layouts. Do not represent CAPTCHA or paywall bypass as a reliable source path; prefer a permitted API, license, or manual review.
 - A later frontend pass used `npx skillui@1.3.4` to extract an Attio design reference into the ignored local `skillui-reference/` folder. The source link uses a visible action, linked title and wrapping URL. Do not copy Attio branding over IBC branding.
-- The sidebar now contains only the KYCX wordmark, New check and official IBC attribution. The non-functional Sources item and sample walkthrough were removed; the app starts with an empty search form. The eye was removed from the dashboard and favicon.
+- The sidebar contains the KYCX wordmark, New check, saved checks and official IBC attribution. The non-functional Sources item and sample walkthrough were removed; the app starts with an empty search form. The eye was removed from the dashboard and favicon.
 - Full name plus city alone is now only a candidate match. A strong match requires the supplied full name, city and employer in the source plus the model's same-person assessment. This deliberately lowers recall when no employer is supplied. The UI says “Strong match” rather than “Confirmed match”; human review remains necessary. Source corroboration across independent pages and additional identifiers such as birth year or role are future work.
 - Any results generated before the stronger matching rule, including the user's earlier Albert Bril check, should be reviewed again under the new rule before relying on a person link.
 - Useful open-source candidates: Trafilatura for article text extraction; RapidFuzz for name-variant candidate generation only; Crawl4AI for a browser fallback; OpenSanctions yente for a separate sanctions screening module. Check data licenses separately from code licenses before using OpenSanctions data commercially.
@@ -47,7 +49,7 @@
 
 ## Validation
 
-- `python -m pytest -q test_api.py test_identity_workflow.py` — eleven passing tests after the identity rule and JSON request fixes.
+- `python -m pytest -q -p no:cacheprovider test_api.py test_identity_workflow.py` — rerun after storage changes (12 tests expected, including persistence and expiration).
 - `cd frontend; npm run build` — passed after adding the metrics display.
 - The deployed frontend and backend versions before the instrumentation both reached Railway `SUCCESS`.
 

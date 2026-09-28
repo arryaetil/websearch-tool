@@ -17,4 +17,4 @@ export function proxy(request: NextRequest) {
   return NextResponse.redirect(new URL("/login", request.url));
 }
 
-export const config = { matcher: ["/", "/login", "/api/research", "/api/report"] };
+export const config = { matcher: ["/", "/login", "/api/research", "/api/report", "/api/runs/:path*"] };

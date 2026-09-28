@@ -27,14 +27,15 @@ npm run dev
 
 Open `http://localhost:3000` and sign in as `admin@etil.nl` with the configured password. Live checks require both `SERPER_API_KEY` and `OPENAI_API_KEY` in the backend environment. Do not put keys in `NEXT_PUBLIC_` variables or commit `.env` files.
 
-## Session-only privacy behavior
+## Temporary evaluation storage
 
-- No search history or research database is created by this prototype. The result exists in browser memory until refresh or navigation.
+- Successful research reports are stored in a private SQLite database for seven days, with a maximum of 100 runs. Expired runs are purged on access, at backend startup, and hourly while it is running. The sidebar lets the signed-in analyst reopen, delete, or clear saved checks.
+- Set `KYCX_RUN_DB=/data/research_runs.sqlite3` on Railway and mount a persistent volume at `/data` on the private backend service. Locally the default is `./data/research_runs.sqlite3`, which is Git-ignored. Losing the Railway volume loses saved runs.
 - The single-admin login uses a signed, HttpOnly, eight-hour cookie. The cookie contains an expiry and signature, not research content. This basic gate does not provide per-user accounts, audit trails or rate limiting.
-- The old Streamlit audit-file writes have been removed. The sidebar does not show past searches.
+- The old Streamlit audit-file writes remain removed. All users sharing the single admin credential can see all saved checks, so this is for controlled evaluation only.
 - The research and PDF API responses use `Cache-Control: no-store`; the Docker backend disables HTTP access logs. PDF files are saved only when the analyst explicitly downloads one.
 - This does **not** mean there is no personal-data processing. Serper receives search queries, the model provider receives selected source text and identity clues, and hosting/provider logs or retention policies may still apply. Review the provider contracts, data locations, legal basis, notification duties, and source categories before real client use.
-- Storing reviewed reports in a later version is a separate product and legal decision. Define a purpose, access rules and a justified retention period first; some client obligations may require retention.
+- Seven days is an evaluation default, not a legal retention determination. Define a purpose, access rules, legal basis, and appropriate retention before real client use.
 
 Run the checks:
 
@@ -62,9 +63,10 @@ Crawl4AI is an optional fallback for pages with little readable HTML. Install it
 Deploy **two services from the same repository** in the Amsterdam region:
 
 - Backend: repository root, using the root `Dockerfile`. Keep this service on Railway's private network. Set `SERPER_API_KEY` and `OPENAI_API_KEY` as backend variables. Set `PORT=8000`; `/health` is the health check.
+- Backend storage: attach a volume mounted at `/data` and set `KYCX_RUN_DB=/data/research_runs.sqlite3`.
 - Frontend: root directory `frontend`, build `npm run build`, start `npm run start`. Set server-side `BACKEND_URL=http://kycx-api.railway.internal:8000`, `KYCX_ACCESS_PASSWORD`, and `KYCX_SESSION_SECRET`. Do not use a `NEXT_PUBLIC_` prefix for any of these variables.
 
-The frontend's `/api/research` and `/api/report` routes call the backend from the server, so provider keys are not shipped to the browser. **Before real personal data is used**, add user-specific access control, brute-force protection, appropriate logging without retaining research content, and complete a privacy review. The current app is a reviewable MVP, not a production compliance system. The deployed backend has no public domain. An OpenAI key still needs to be configured for live checks.
+The frontend's `/api/research`, `/api/runs`, and `/api/report` routes call the backend from the server, so provider keys are not shipped to the browser. **Before real client use**, add user-specific access control, brute-force protection, appropriate logging without retaining research content, and complete a privacy review. The current app is a reviewable MVP, not a production compliance system. The deployed backend has no public domain. See `OSINT_PLAN.md` for the proposed LangGraph-centered source expansion.
 
 ## Files
 
