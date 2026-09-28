@@ -54,16 +54,16 @@
 - `cd frontend; npm run build` — passed after adding the metrics display.
 - The deployed frontend and backend versions before the instrumentation both reached Railway `SUCCESS`.
 
-## Packaging
-
 ## Current frontend and evidence-score pass (28 September 2026)
 
 - The Impeccable critique used two independent subagents and found a 20/40 baseline on Nielsen heuristics. This is a subjective UX assessment, not an automated pass/fail test. The first follow-up removed redundant summary cards and the subtitle under the KYCX wordmark on login and dashboard, improved evidence links, filter empty states, deletion confirmation, readability, focus and tablet layout. The technical audit and independent rescore remain to be completed.
 - `identity_workflow.py` now adds a per-source `confidence_score` from 0–3: 0 no person link, 1 full name only, 2 full name and city but still unresolved, 3 full name, city and employer with the model's same-person assessment. This is an evidence tier, not a probability or misconduct score. It also adds report `risk_flags` for linked adverse reporting, unresolved identity and source coverage gaps. Flags come from verified source quotes/identity status, not general web-search snippets. Older saved checks do not have these fields and should be rerun for a score.
-- The frontend shows these fields; no flag means no flag in reviewed sources, not clearance. The two services need deploying together: backend from repo root with `railway up . --service kycx-api --detach --json`, frontend from repo root with `railway up ./frontend --path-as-root --service kycx-adverse-media --detach --json`. Running frontend deploy from inside `frontend` without `--path-as-root` previously uploaded the API and caused `/login` 404.
+- The frontend shows these fields; no flag means no flag in reviewed sources, not clearance. Both services were deployed successfully to Railway: backend `c00bea01-b5ae-495a-a3d4-e60c6ac1b613`, frontend `ec49b06b-ca38-4982-8294-df68ae1cef79`. The public `/login` returned HTTP 200 and the removed subtitle was absent. Deploy backend from repo root with `railway up --service kycx-api --detach --json` (the explicit `.` path returns `prefix not found` on CLI 5.8); deploy frontend from repo root with `railway up ./frontend --path-as-root --service kycx-adverse-media --detach --json`. Running frontend deploy from inside `frontend` without `--path-as-root` previously uploaded the API and caused `/login` 404.
 - `test_identity_workflow.py` has regression tests for score tiers and flags; 13 backend tests pass. TypeScript `npx tsc --noEmit` passes. Local `next build` compiles successfully but final worker spawning is blocked with `EPERM` in the current sandbox; repeat in Railway build.
 - A fictional local browser case verified that a zero-result source filter clears the prior source detail. No real person data was used for this UI test.
 - OSINT Framework is a discovery catalogue, not a data provider. Its current repository lists tool status, pricing, API and access metadata. Evaluate official registers and licensed sources before social-account or illicit-market leads; keep LangGraph routing and identity validation central. See `OSINT_PLAN.md`.
+
+## Packaging
 
 - `outputs/kycx-research-mvp.zip` is a source archive generated with `work/package_mvp.py`. Regenerate it after changes. It excludes `.env`, `audit_log.jsonl`, `.git`, `.next`, and `node_modules`.
 - Keep deliverables in the workspace `outputs` directory; keep temporary analysis under `work`.

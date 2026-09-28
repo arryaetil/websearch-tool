@@ -22,6 +22,22 @@ LangGraph should control routing, retries, fan-out, review interrupts and state 
 
 ## Candidate sources, in order of value
 
+### Identity anchors to evaluate first
+
+OSINT Framework is a tool directory, not a verified identity database. Prioritize primary registers and record exactly which identifiers each can corroborate:
+
+| Source | Identity value | Practical limit | MVP use |
+| --- | --- | --- | --- |
+| KVK Handelsregister extract | Registered owner/director name, company, role and sometimes location | Search API finds companies, not a universal person lookup; extracts cost money and access/redistribution terms matter | Ask for company or KVK number, retrieve/attach an authorized extract, compare role and company to article |
+| BIG-register | Healthcare professional name, profession, BIG number and search by birth date | Only registered healthcare professions; extra personal detail must be supplied lawfully | Optional sector adapter when profession/BIG number is known |
+| NOvA lawyer register | Lawyer name, office and locality | Lawyers only; a name match alone may still be ambiguous | Optional sector adapter when legal profession is known |
+| EU official sanctions list | Names/aliases and, when available, date/place of birth and nationality | A sanctions-list hit is an adverse lead requiring exact-identifier review; absence is not clearance | Separate sanctions node, never merge name-only candidates into confirmed adverse findings |
+| KVK public directors-ban register | A directly relevant official measure | Only currently visible bans from 1 October 2024 onward; no universal criminal-record search | Optional high-value adverse source after identity match |
+
+There is no general public Dutch register that proves the identity of any private person from name and city. For a general-person check, ask the client for a second independent identifier (employer and role, birth year where lawful, professional registration number or KVK-linked organization). Keep public professional profiles as corroboration, not authoritative identity proof. Dutch court decisions generally pseudonymize natural persons, so a name search there is not a reliable person-confirmation method.
+
+**Recommended next build:** add an `identity_anchor` branch to LangGraph. If the analyst supplies a company/KVK number, check an authorized KVK extract first; if a regulated profession is supplied, route to BIG or NOvA. Store source URL/document ID, retrieval time, matching attributes and contradictions. Then assess adverse sources against the anchored profile, with `needs_review` for unresolved cases. Add the official EU sanctions list as a separate branch next. Measure false matches before expanding to social platforms.
+
 | Source category | Possible contribution | First step |
 | --- | --- | --- |
 | News and investigative reporting | Adverse event and direct source links | Improve current Serper discovery, freshness and duplicate handling |
@@ -53,3 +69,5 @@ Measure false person matches first, then missed relevant findings, unsupported c
 Define the exact client purpose and legal basis; whether criminal-offence data is processed; source terms and commercial licenses; data-subject transparency and correction process; model/provider transfers; access controls; retention; and whether a DPIA is required. This plan is product design, not a legal determination.
 
 References: [EDPB principles](https://www.edpb.europa.eu/topics/key-gdpr-concepts/basic-principles_en), [AP legal bases](https://autoriteitpersoonsgegevens.nl/themas/basis-avg/avg-algemeen/grondslagen-avg-uitgelegd), [OpenSanctions licensing](https://www.opensanctions.org/docs/api/), [HIBP API](https://haveibeenpwned.com/API/v3), [OCCRP Aleph](https://docs.aleph.occrp.org/).
+
+Primary source notes: [KVK extract](https://www.kvk.nl/over-het-handelsregister/check-via-uittreksel/), [KVK search API](https://developers.kvk.nl/nl/documentation/zoeken-api), [BIG search](https://zoeken.bigregister.nl/zoeken/kenmerken?gender=1), [NOvA lawyer search](https://zoekeenadvocaat.advocatenorde.nl/), [EU sanctions resources](https://finance.ec.europa.eu/eu-and-world/sanctions-restrictive-measures/overview-sanctions-and-related-resources_en), [KVK directors-ban scope](https://www.kvk.nl/bestuursverboden/intro/), [Rechtspraak publication practice](https://www.rechtspraak.nl/uitspraken), [OSINT Framework metadata](https://github.com/lockfale/osint-framework).
