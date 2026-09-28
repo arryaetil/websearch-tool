@@ -64,12 +64,15 @@ def research(request: ResearchRequest):
         report = dict(run_identity_research(
             request.name, request.city, request.employer, request.context
         ))
-        report["saved_run"] = save_run(report)
-        return report
     except (ValueError, RuntimeError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Research provider failed: {type(exc).__name__}") from exc
+    try:
+        report["saved_run"] = save_run(report)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="Check completed but could not be saved. Try again later.") from exc
+    return report
 
 
 @app.get("/runs")

@@ -5,7 +5,7 @@
 - GitHub remote: `https://github.com/arryaetil/websearch-tool.git`.
 - This working tree contains the new Next.js frontend and FastAPI/LangGraph adverse media workflow. Check `git status` and the latest commit before continuing.
 - Public Railway frontend: `https://kycx-adverse-media-production.up.railway.app`. Railway project: `kycx-adverse-media` (`3b9dd43c-a2d3-430e-bfe9-e7cbe965bc6e`). Services: `kycx-adverse-media` frontend and private `kycx-api` backend, both configured for Amsterdam.
-- The published login has the original KYCX wordmark centered, no eye icon, centered “Sign in”, and centered official IBC group attribution. The workspace cleanup, source links and stricter identity logic are live. Backend deployment `ef600dda-8f03-4274-8de0-497e6773cbae` and frontend deployment `b58a21de-d62d-4613-be70-47067e7b3b1f` both reached `SUCCESS`.
+- The published login has the original KYCX wordmark centered, no eye icon, centered “Sign in”, and centered official IBC group attribution. The workspace cleanup, source links and stricter identity logic are live. The final storage backend deployment `8f7e8848-13ff-4732-b3df-1050dbb6e6b4` and glass UI frontend deployment `541850ca-a292-4e93-b20a-0e27bfe6eaff` both reached `SUCCESS`.
 - The private Railway backend has both `SERPER_API_KEY` and `OPENAI_API_KEY` configured. The user explicitly requested setting the OpenAI key on Railway. Do not put secrets in Git, handover text, logs, or screenshots.
 - The OpenAI API key was supplied through the clipboard and also saved in the local, Git-ignored `.env`. Do not read or print its value.
 - Local Railway access credentials are in the workspace `outputs/kycx-railway-access.txt`; this is deliberately outside the repository and must never be committed or put in the source ZIP.
@@ -15,7 +15,8 @@
 - Purpose: adverse media checks on a person, with strong identity matching and source-linked evidence. Search snippets are leads, not findings. Human review is required.
 - The user now authorizes short-lived evaluation storage. New code stores successful reports in SQLite for seven days, max 100, with reopen/delete/clear controls. Railway volume `d749466d-fd9d-471b-b959-eb398b063b92` is attached to private `kycx-api` at `/data`, and `KYCX_RUN_DB=/data/research_runs.sqlite3` is set. Confirm deployment status before telling the user it is live. The shared admin credential exposes all saved runs to every holder; this remains a controlled evaluation feature.
 - The user requested OSINT brainstorming with LangGraph central. No OSINT source was integrated. `OSINT_PLAN.md` lists source candidates, graph nodes, evaluation criteria and governance questions. A username or online account is only a lead, not evidence of misconduct or person identity.
-- The user requested more liquid-glass visual style. The current local CSS pass adds translucent structural surfaces and blue/violet depth while keeping source reading text on an opaque plane. Confirm deployment and visual QA.
+- The user requested more liquid-glass visual style. The deployed CSS adds translucent structural surfaces and blue/violet depth while keeping source reading text on an opaque plane. The build passed; browser visual QA was blocked by `ERR_BLOCKED_BY_CLIENT`, so inspect visually when a browser connection is available.
+- The user pointed to [pbakaus/impeccable](https://github.com/pbakaus/impeccable) for frontend design. It has a Codex-compatible skill, design critique/audit/distill/polish/adapt commands and optional browser iteration. It has not been installed or run in KYCX. A future pass should use it for a targeted audit of the dashboard and login, preserving IBC branding, useful-only copy and evidence readability. The repo is Apache-2.0.
 - Interface copy should be sparse and useful. Official, unaltered IBC logo and technology image are included; Ubuntu and selected IBC colors are used. The original frontend was built manually; the later source-link pass used `npxskillui` as the user requested.
 - Crawl4AI is currently an opt-in fallback when a page has little HTML. It may help with JavaScript rendering and difficult layouts. Do not represent CAPTCHA or paywall bypass as a reliable source path; prefer a permitted API, license, or manual review.
 - A later frontend pass used `npx skillui@1.3.4` to extract an Attio design reference into the ignored local `skillui-reference/` folder. The source link uses a visible action, linked title and wrapping URL. Do not copy Attio branding over IBC branding.
@@ -49,7 +50,7 @@
 
 ## Validation
 
-- `python -m pytest -q -p no:cacheprovider test_api.py test_identity_workflow.py` — rerun after storage changes (12 tests expected, including persistence and expiration).
+- `python -m pytest -q -p no:cacheprovider test_api.py test_identity_workflow.py` — 12 tests passed, including persistence and expiration.
 - `cd frontend; npm run build` — passed after adding the metrics display.
 - The deployed frontend and backend versions before the instrumentation both reached Railway `SUCCESS`.
 
