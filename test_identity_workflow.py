@@ -33,6 +33,15 @@ class IdentityWorkflowTests(unittest.TestCase):
         self.assertEqual(item["identity"], "possible")
         self.assertEqual(item["claims"], [])
 
+    def test_model_request_explicitly_asks_for_json(self):
+        client = MagicMock()
+        client.responses.create.return_value.output_text = '{"identity":"possible","reason":"No match","claims":[]}'
+        client.responses.create.return_value.usage = None
+        with patch.dict("identity_workflow.os.environ", {"OPENAI_API_KEY": "test-key"}), \
+             patch("identity_workflow.OpenAI", return_value=client):
+            assess({"name": "Alex Jansen", "city": "Utrecht", "pages": [self.page("Alex Jansen in Utrecht")]})
+        self.assertIn("JSON", client.responses.create.call_args.kwargs["input"])
+
     def test_name_alone_does_not_confirm(self):
         item = self.assess_with_model(
             "Alex Jansen is a director in Rotterdam.",

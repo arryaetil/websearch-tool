@@ -3,10 +3,11 @@
 ## Repository and current state
 
 - GitHub remote: `https://github.com/arryaetil/websearch-tool.git`.
-- This working tree contains the new Next.js frontend and FastAPI/LangGraph adverse media workflow. Changes are **committed locally but not pushed to GitHub**. Check `git status` and the latest commit before continuing; do not overwrite the working tree.
+- This working tree contains the new Next.js frontend and FastAPI/LangGraph adverse media workflow. The main MVP was **committed locally but not pushed to GitHub**. Additional changes after that commit may be present; check `git status` and the latest commit before continuing.
 - Public Railway frontend: `https://kycx-adverse-media-production.up.railway.app`. Railway project: `kycx-adverse-media` (`3b9dd43c-a2d3-430e-bfe9-e7cbe965bc6e`). Services: `kycx-adverse-media` frontend and private `kycx-api` backend, both configured for Amsterdam.
 - The published login has the original KYCX wordmark centered, no eye icon, centered “Sign in”, and centered official IBC group attribution. The latest backend timing/cost instrumentation and balanced Serper search, plus the frontend run-metrics line, are **local only** at the time of this handover.
-- The backend has a Serper key configured. It does **not** have `OPENAI_API_KEY`; full live assessments cannot run yet. Do not put secrets in Git, handover text, logs, or screenshots.
+- The Railway backend has a Serper key configured. It does **not** have `OPENAI_API_KEY`; full live assessments cannot run yet. Do not put secrets in Git, handover text, logs, or screenshots.
+- An OpenAI API key was later supplied through the clipboard and saved in the local, Git-ignored `.env`. It is **not** configured on Railway. Do not read or print its value.
 - Local Railway access credentials are in the workspace `outputs/kycx-railway-access.txt`; this is deliberately outside the repository and must never be committed or put in the source ZIP.
 
 ## Product decisions
@@ -22,20 +23,23 @@
 - Previous Serper search implementation: 1.94 s, eight candidate URLs, but it could stop after the first query and miss Dutch and context searches.
 - Revised local Serper implementation: three parallel queries, 2.01 s, eight candidate URLs. Results reserve space for English adverse, Dutch adverse, and identity-context searches.
 - Revised local search plus HTML retrieval: search 1.94 s; fetch 5.48 s; eight candidate URLs; four readable pages. This is **not** a full end-to-end benchmark because the model key is missing.
+- A fictional one-page model assessment took 4.52 s, using 350 input and 122 output tokens. Its estimated model cost at GPT-4.1 mini list rates is about $0.00034. Real pages can be much longer, so this is not a per-run estimate.
+- The first fictional call revealed an OpenAI JSON-format request error; `identity_workflow.py` now explicitly asks for JSON in the input and a regression test covers it.
+- An attempted real-person end-to-end benchmark was rejected by automatic approval review: sending Albert Bril's identity data and potentially sensitive source text to OpenAI requires explicit authorization for that specific transfer. A user question is pending. Do not work around the rejection or run that test before explicit approval.
 - Serper Starter list price is $1/1,000 successful queries, so three searches are approximately $0.003 before tax. The local code estimates GPT-4.1 mini cost from actual reported input, cached-input and output tokens at $0.40, $0.10 and $1.60 per million respectively. This is an estimate, not an invoice, and excludes hosting. Official pricing: `https://serper.dev/#pricing` and `https://developers.openai.com/api/docs/models/gpt-4.1-mini`.
 - The current page retrieval and model assessments are sequential. After obtaining a real full-run baseline, consider bounded parallelism, with rate-limit and source-quality checks. Avoid cutting identity evidence solely to save tokens.
 
 ## Next steps
 
 1. Inspect the local commit, then push to the GitHub remote when the automatic approval review permits network actions. A `git clone` of `arryaetil/KYC4etil` was blocked because the approval reviewer hit its usage limit; do not bypass that block. This prevents a fair measured comparison with the older Streamlit KYC app for now. Obtain and inspect that repository when access resumes; do not use `app.py` in this repo as a substitute because it is a different company-research prototype.
-2. Configure `OPENAI_API_KEY` securely in the private Railway backend, then run a controlled end-to-end benchmark on the agreed test case and record stage times, token counts, source coverage, and estimated cost. Never print the key or raw personal research to logs.
+2. After explicit user approval for transferring the real-person source text, configure `OPENAI_API_KEY` securely in the private Railway backend and run a controlled end-to-end benchmark on the agreed test case. Record stage times, token counts, source coverage, and estimated cost. Never print the key or raw personal research to logs. If approval is not given, continue with fictional data only.
 3. Redeploy the local timing/cost instrumentation and balanced search to both Railway services after validation. Confirm the latest deployments reach `SUCCESS` and test the public page.
 4. Benchmark the older KYC4etil Streamlit workflow on the same subject and environment, including provider calls and source coverage. Report both latency and output quality; do not claim improvement from different workloads.
 5. Evaluate Crawl4AI on a few permitted, JavaScript-heavy sources. Keep ordinary HTML as the default and measure fallback frequency and delay.
 
 ## Validation
 
-- `python -m pytest -q test_api.py test_identity_workflow.py` — nine passing tests after the latest local changes.
+- `python -m pytest -q test_api.py test_identity_workflow.py` — ten passing tests after the JSON request fix.
 - `cd frontend; npm run build` — passed after adding the metrics display.
 - The deployed frontend and backend versions before the instrumentation both reached Railway `SUCCESS`.
 

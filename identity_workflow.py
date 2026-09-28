@@ -212,7 +212,7 @@ def assess(state: ResearchState) -> dict:
         response = client.responses.create(
             model=os.environ.get("IDENTITY_MODEL", "gpt-4.1-mini"),
             instructions=ASSESSMENT_INSTRUCTIONS,
-            input=json.dumps(payload, ensure_ascii=False),
+            input="Return a JSON assessment for this source:\n" + json.dumps(payload, ensure_ascii=False),
             text={"format": {"type": "json_object"}},
         )
         if response.usage:
