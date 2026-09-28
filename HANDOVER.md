@@ -5,7 +5,7 @@
 - GitHub remote: `https://github.com/arryaetil/websearch-tool.git`.
 - This working tree contains the new Next.js frontend and FastAPI/LangGraph adverse media workflow. Check `git status` and the latest commit before continuing.
 - Public Railway frontend: `https://kycx-adverse-media-production.up.railway.app`. Railway project: `kycx-adverse-media` (`3b9dd43c-a2d3-430e-bfe9-e7cbe965bc6e`). Services: `kycx-adverse-media` frontend and private `kycx-api` backend, both configured for Amsterdam.
-- The published login has the original KYCX wordmark centered, no eye icon, centered “Sign in”, and centered official IBC group attribution. The latest backend timing/cost instrumentation, JSON request fix and balanced Serper search, plus the frontend run-metrics line, were submitted to Railway. Check deployment status before assuming they are live.
+- The published login has the original KYCX wordmark centered, no eye icon, centered “Sign in”, and centered official IBC group attribution. The backend timing/cost instrumentation, JSON request fix and balanced Serper search, plus the frontend run-metrics line, are live. Backend deployment `126fc2cf-ed3e-45ee-aaa5-f756e8369b97` and frontend deployment `9d751425-abd9-4fdd-8b0d-a2b515e3dece` both reached `SUCCESS`.
 - The private Railway backend has both `SERPER_API_KEY` and `OPENAI_API_KEY` configured. The user explicitly requested setting the OpenAI key on Railway. Do not put secrets in Git, handover text, logs, or screenshots.
 - The OpenAI API key was supplied through the clipboard and also saved in the local, Git-ignored `.env`. Do not read or print its value.
 - Local Railway access credentials are in the workspace `outputs/kycx-railway-access.txt`; this is deliberately outside the repository and must never be committed or put in the source ZIP.
@@ -31,7 +31,7 @@
 
 ## Next steps
 
-1. Inspect and push the local commits to the GitHub remote if this has not already been done. A `git clone` of `arryaetil/KYC4etil` was blocked because the approval reviewer hit its usage limit; do not bypass that block. Obtain and inspect that repository when access resumes; do not use `app.py` in this repo as a substitute because it is a different company-research prototype.
+1. The KYCX commits were pushed to `main` at `https://github.com/arryaetil/websearch-tool`. A `git clone` of `arryaetil/KYC4etil` was blocked earlier because the approval reviewer hit its usage limit. Obtain and inspect that repository when access resumes; do not use `app.py` in this repo as a substitute because it is a different company-research prototype.
 2. After explicit user approval for transferring the real-person source text, run a controlled end-to-end benchmark on the agreed test case. Record stage times, token counts, source coverage, and estimated cost. Never print the key or raw personal research to logs. If approval is not given, continue with fictional data only.
 3. Redeploy the local timing/cost instrumentation and balanced search to both Railway services after validation. Confirm the latest deployments reach `SUCCESS` and test the public page.
 4. Benchmark the older KYC4etil Streamlit workflow on the same subject and environment, including provider calls and source coverage. Report both latency and output quality; do not claim improvement from different workloads.
