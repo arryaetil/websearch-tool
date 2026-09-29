@@ -63,6 +63,39 @@ def new_run(case: dict) -> dict:
     return {"seconds": result["metrics"]["total_seconds"], "usage": result["metrics"], "report": result}
 
 
+def summarize(pair: dict) -> dict:
+    """Side-by-side numbers per case. Quality still needs an analyst reference set."""
+    old, new = pair.get("openai_web_search", {}), pair.get("langgraph", {})
+    old_report, new_report = old.get("report") or {}, new.get("report") or {}
+    review = new_report.get("review") or {}
+    sources = new_report.get("sources", [])
+    claims = [c for s in sources for c in s.get("claims", []) + s.get("candidate_claims", [])]
+    return {
+        "id": pair["id"],
+        "seconds": (old.get("seconds"), new.get("seconds")),
+        "estimated_usd": (old.get("estimated_usd"), (new.get("usage") or {}).get("estimated_usd")),
+        "score": (old_report.get("confidence_score"), review.get("score")),
+        "verdict": (old_report.get("confidence_verdict"), review.get("label")),
+        "sources_listed": (len(old_report.get("sources", [])), len(sources)),
+        "risk_flags": (len(old_report.get("risk_flags", [])), len(new_report.get("flags", []))),
+        # Traceability: visible queries, and claims that carry a verbatim quote and a URL.
+        "queries_visible": (sum(len((t.get("action") or {}).get("queries") or [(t.get("action") or {}).get("query")] )
+                                for t in old.get("search_trace", []) if t.get("action")),
+                            len(new_report.get("search_trace", []))),
+        "claims_with_quote_and_url": ("n/a (no per-claim link in schema)", f"{sum(1 for c in claims if c.get('quote'))}/{len(claims)}"),
+        "errors": (old.get("error_type"), new.get("error_type")),
+    }
+
+
+def markdown(rows: list[dict]) -> str:
+    lines = ["| Case | Measure | Original prompt (GPT-5.1 web search) | LangGraph |", "| --- | --- | --- | --- |"]
+    for row in rows:
+        for key, value in row.items():
+            if key != "id":
+                lines.append(f"| {row['id']} | {key.replace('_', ' ')} | {value[0]} | {value[1]} |")
+    return "\n".join(lines) + "\n"
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("case_file", type=Path, help="JSON in data/; use only approved cases")
@@ -91,7 +124,9 @@ def main() -> None:
         output["results"].append(pair)
     destination = data_dir / f"comparison-{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}.json"
     destination.write_text(json.dumps(output, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"Comparison saved locally: {destination}")
+    table = destination.with_suffix(".md")
+    table.write_text(markdown([summarize(pair) for pair in output["results"]]), encoding="utf-8")
+    print(f"Comparison saved locally: {destination} and {table.name}")
     for pair in output["results"]:
         print(f"{pair['id']}: OpenAI web search {pair['openai_web_search'].get('seconds', 'failed')} s; "
               f"LangGraph {pair['langgraph'].get('seconds', 'failed')} s")
