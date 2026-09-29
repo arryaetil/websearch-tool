@@ -49,6 +49,8 @@ def search_aliases(full_name: str, aliases: list[str]) -> list[str]:
     forms = [f"{first[0].title()} {stub}.", f"{first[0][0].upper()}. {tail.title()}"] + [a.title() for a in aliases if " " in a]
     if len(first) > 1:
         forms.append(f"{''.join(part[0].upper() + '.' for part in first)} {tail.title()}")
+        # Compound surname convention from the original researcher: "Edwin K.S."
+        forms.insert(1, f"{first[0].title()} {''.join(p[0].upper() + '.' for p in first[1:] + surname.split())}")
     for g in [a for a in aliases if " " not in a] + ordered:
         forms += [f"{g.title()} {stub}.", f"{g.title()} {f'{prefix} {surname.title()}'.strip()}"]
     return list(dict.fromkeys(forms))[:6]
@@ -102,6 +104,8 @@ def name_variants(full_name: str, aliases: tuple[str, ...] | list[str] = ()) -> 
         full.append(f"{surname}, {given} {prefix}")
     stub = f"{prefix} {surname[0]}".strip()
     partial = [f"{given} {stub}.", f"{given} {stub}"]
+    if len(first) > 1:  # Compound surname abbreviated to initials, e.g. "edwin k.s."
+        partial.append(f"{given} {''.join(p[0] + '.' for p in first[1:] + surname.split())}")
     # A roepnaam ("Appie" for Albert) is weaker than the given name: always partial.
     # Analyst-supplied aliases are treated the same way: a single word is a first name.
     alias_given = {a for a in aliases if " " not in a}

@@ -195,3 +195,28 @@ button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid #a9
 @media(prefers-contrast:more){.result-summary,.flag-panel,.coverage-panel,.results-workspace,.detail-pane,.search-panel{background:#0b1320;border-color:#d7e8ffaa;-webkit-backdrop-filter:none;backdrop-filter:none}}
 @media(prefers-reduced-motion:reduce){.detail-pane>*{animation:none}.outline-button,.open-source-button,.saved-run{transition:none}}
 @media(max-width:680px){.main-area{background-attachment:scroll}.detail-pane{background:#0f1a2bf0}}
+
+/* Section icons: small glass tiles with a tinted glyph, one per rubriek. */
+.section-icon{display:inline-grid;place-items:center;flex:none;width:28px;height:28px;border-radius:8px;border:1px solid var(--mat-edge);background:linear-gradient(150deg,#d7e8ff1f,#d7e8ff08);box-shadow:var(--mat-highlight),0 4px 12px #0208144d;vertical-align:middle}
+.section-icon.tone-blue{color:#9cc5fa}.section-icon.tone-violet{color:#c2a8ff;border-color:#c2a8ff40}.section-icon.tone-amber{color:var(--amber);border-color:#e6b77840}.section-icon.tone-mint{color:var(--mint)}
+.flag-panel h3,.coverage-panel h3,.section-heading h2,.candidate-claims h4,.review-section h4{display:flex;align-items:center;gap:10px}
+.findings-head>div{gap:10px}.assessment-header>div{gap:10px}
+.coverage-top strong{display:flex;align-items:center;gap:7px}.coverage-top strong svg{color:#9cc5fa;flex:none}
+.saved-runs-header,.run-metrics summary,.review-queries summary{display:flex;align-items:center;gap:6px}
+/* Review agent: the one advisory overall view, on regular glass with a violet edge. */
+.review-panel{position:relative;isolation:isolate;margin:0 0 22px;padding:18px 20px;border:1px solid #c2a8ff4d;border-radius:16px;background:linear-gradient(150deg,#3a3f78a6,#1b2440bd 55%,#111a2ec9);box-shadow:var(--mat-highlight),var(--mat-shadow);-webkit-backdrop-filter:blur(26px) saturate(145%);backdrop-filter:blur(26px) saturate(145%)}
+.review-head{display:flex;align-items:center;gap:12px}.review-title{flex:1;min-width:0}.review-title h3{font-size:15px;font-weight:650;color:#f5f8ff;letter-spacing:-.01em}.review-title small{display:block;margin-top:3px;font-size:12px;color:#c3cbe0}
+.review-score{display:flex;align-items:baseline;gap:10px}.review-score strong{font-size:30px;font-weight:700;letter-spacing:-.03em;color:#fff;font-variant-numeric:tabular-nums}
+.verdict{font-size:12px;font-weight:650;padding:4px 9px;border-radius:6px;background:#d7e8ff17;color:#e6ecf8}.verdict-very-high,.verdict-high{background:var(--ok-bg);color:var(--ok)}.verdict-moderate{background:var(--warn-bg);color:var(--warn)}.verdict-low{background:#d7e8ff14;color:#c6d2e2}
+.score-bar{height:6px;margin:14px 0 4px;border-radius:4px;background:#d7e8ff1a;overflow:hidden}.score-bar i{display:block;width:100%;height:100%;border-radius:4px;background:linear-gradient(90deg,#6a5cff,#3f9bff);transform-origin:left;transform:scaleX(var(--score,0));transition:transform .4s cubic-bezier(.16,1,.3,1)}
+.review-summary,.review-reasons{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:7px}.review-summary li{font-size:13px;line-height:1.6;color:#e3e9f3}
+.review-reasons li{display:flex;align-items:flex-start;gap:8px;font-size:12px;line-height:1.5;color:#c9d3e1}.review-reasons li svg{flex:none;margin-top:2px}.review-reasons li.supports svg{color:var(--ok)}.review-reasons li.contradicts svg{color:var(--danger)}
+.ref-chip{display:inline-flex;align-items:center;margin-left:5px;padding:1px 6px;border:1px solid #9cc5fa55;border-radius:5px;background:#9cc5fa14;color:#b8d6ff;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;vertical-align:1px}.ref-chip:hover{background:#9cc5fa2b;color:#fff}.ref-chip:focus-visible{outline:2px solid #9cc5fa;outline-offset:1px}
+.review-sections{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin-top:16px}
+.review-section{padding:12px;border:1px solid var(--mat-edge-soft);border-radius:10px;background:var(--mat-thin)}.review-section h4{font-size:13px;font-weight:620;color:#eef3fb}.review-section h4 span{margin-left:auto;font-size:11px;color:#aebdd0;font-variant-numeric:tabular-nums}
+.review-section ul{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}.review-section li{font-size:12px;line-height:1.5;color:#c9d3e1}.review-section li strong{display:block;color:#eef3fb;font-weight:600}
+.review-section p{margin-top:8px;font-size:12px;color:#8f9bb0}.review-section.empty{opacity:.72}
+.review-queries{margin-top:14px;font-size:12px;color:#aebdd0}.review-queries summary{cursor:pointer}.review-queries ul{margin:8px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:4px}.review-queries code{font-size:11px;color:#c9d3e1;overflow-wrap:anywhere}
+@media(prefers-reduced-transparency:reduce){.review-panel{background:#17203a;-webkit-backdrop-filter:none;backdrop-filter:none}}
+@media(prefers-reduced-motion:reduce){.score-bar i{transition:none}}
+@media(max-width:680px){.review-head{flex-wrap:wrap}.review-score{width:100%}.review-sections{grid-template-columns:1fr}}

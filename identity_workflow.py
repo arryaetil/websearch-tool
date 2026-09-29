@@ -1,6 +1,6 @@
 """Evidence-first adverse media checks. Search hits are leads, never findings.
 
-Graph: intake -> (web search -> fetch | sanctions | BIG register) -> identity -> adverse
+Graph: intake -> (web search -> fetch | sanctions) -> identity -> adverse
 -> archive -> assemble. A model extracts facts; deterministic rules decide identity.
 """
 
@@ -28,11 +28,11 @@ from langgraph.graph import END, START, StateGraph
 from openai import OpenAI
 from pypdf import PdfReader
 
-import big_register
+import review_agent
 import sanctions
 from identity_rules import (
     compare_age, compare_city, compare_employer, compare_name, compare_profession, decide_tier,
-    parse_aliases, search_aliases,
+    parse_aliases, search_aliases, split_name,
 )
 
 load_dotenv(Path(__file__).parent / ".env")
@@ -45,6 +45,9 @@ MAX_FOLLOW_UP_RESULTS = 4
 MAX_BYTES = 500_000
 MAX_PDF_BYTES = 4_000_000
 OFFICIAL_SITES = ("afm.nl", "dnb.nl", "kvk.nl", "rechtspraak.nl")
+# Always searched, as in the original researcher: insolvency and Dutch regional news.
+INSOLVENCY_SITES = ("insolventies.rechtspraak.nl", "faillissementsverslagen.com")
+REGIONAL_NEWS_SITES = ("rtvoost.nl", "tubantia.nl", "destentor.nl", "ad.nl", "headliner.nl")
 PROFESSIONS = ("healthcare", "lawyer", "other", "unknown")
 MANUAL_CHECKS = [
     {"label": "Insolvency register", "url": "https://insolventies.rechtspraak.nl/",
@@ -86,6 +89,8 @@ class ResearchState(TypedDict, total=False):
     register_hits: list[dict]
     errors: Annotated[list[str], operator.add]
     coverage: Annotated[list[dict], operator.add]
+    review: dict
+    deep_search_done: bool
     report: dict
     metrics: Annotated[dict, _merge]
 
@@ -154,6 +159,13 @@ def search(state: ResearchState) -> dict:
     queries.append(f'"{name}" (' + " OR ".join(f"site:{site}" for site in OFFICIAL_SITES) + ")")
     if forms:
         queries.append("(" + " OR ".join(f'"{form}"' for form in forms) + f') "{state["city"]}"')
+    # Enforced sources. Companies are often named after the owner and city
+    # ("A. Bril Bergentheim Holding"), so the insolvency query uses surname and city.
+    surname = split_name(name)[2]
+    queries.append(f'"{surname}" "{state["city"]}" (faillissement OR curator OR '
+                   + " OR ".join(f"site:{site}" for site in INSOLVENCY_SITES) + ")")
+    news_forms = " OR ".join(f'"{form}"' for form in ([name] + forms)[:4])
+    queries.append(f"({news_forms}) (" + " OR ".join(f"site:{site}" for site in REGIONAL_NEWS_SITES) + ")")
     if state.get("employer"):
         queries.append(f'"{name}" "{state["employer"]}"')
     if state.get("context"):
@@ -290,23 +302,6 @@ def check_sanctions(state: ResearchState) -> dict:
         "sanctions", label, "stale" if stale else "searched",
         f"Matched locally against lists downloaded {listed}")],
         "metrics": {"sanctions_seconds": round(time.perf_counter() - started, 2)}}
-
-
-def check_big(state: ResearchState) -> dict:
-    label = "BIG register (healthcare)"
-    if state.get("profession") != "healthcare":
-        return {"register_hits": [], "coverage": [_coverage(
-            "big", label, "not_applicable", "Only searched when the profession is healthcare")]}
-    started = time.perf_counter()
-    try:
-        records = big_register.search(state["name"])
-    except Exception as exc:
-        return {"register_hits": [], "coverage": [_coverage(
-            "big", label, "failed", f"Register unavailable: {type(exc).__name__}")]}
-    hits = big_register.assess_records(records, state["name"], state["city"])
-    return {"register_hits": hits, "coverage": [_coverage(
-        "big", label, "searched", f"{len(hits)} matching {'entry' if len(hits) == 1 else 'entries'}")],
-        "metrics": {"big_seconds": round(time.perf_counter() - started, 2)}}
 
 
 EXTRACTION_INSTRUCTIONS = """You extract identity facts and adverse claims from one public source for an adverse media check.
@@ -541,6 +536,76 @@ def archive(state: ResearchState) -> dict:
     return {"assessments": updated, "metrics": {"archive_seconds": round(time.perf_counter() - started, 2)}}
 
 
+def review(state: ResearchState) -> dict:
+    """Separate agent: advisory overall score and summary over the collected evidence."""
+    started = time.perf_counter()
+    result, usage = review_agent.run_review(state, lambda: OpenAI(api_key=os.environ["OPENAI_API_KEY"]))
+    old = state.get("metrics", {})
+    return {"review": result, "metrics": {
+        "review_seconds": round(old.get("review_seconds", 0) + time.perf_counter() - started, 2),
+        "review_calls": old.get("review_calls", 0) + (1 if usage else 0),
+        "review_model": usage.get("review_model", old.get("review_model", "")),
+        "review_input_tokens": old.get("review_input_tokens", 0) + usage.get("review_input_tokens", 0),
+        "review_output_tokens": old.get("review_output_tokens", 0) + usage.get("review_output_tokens", 0),
+    }}
+
+
+def route_after_review(state: ResearchState) -> str:
+    """Deeper search runs at most once, only for unresolved cases the agent can act on."""
+    items = state.get("assessments", [])
+    unresolved = not any(a["identity"] == "confirmed" for a in items) and any(
+        a["identity"] == "possible" for a in items)
+    wanted = state.get("review", {}).get("deeper_search", {})
+    if unresolved and wanted.get("needed") and wanted.get("queries") and not state.get("deep_search_done"):
+        return "deep_search"
+    return "assemble"
+
+
+def deep_search(state: ResearchState) -> dict:
+    """Queries proposed by the review agent, validated in review_agent.safe_queries."""
+    queries = state["review"]["deeper_search"]["queries"]
+    key = os.environ.get("SERPER_API_KEY")
+    if not key:
+        return {"deep_search_done": True, "coverage": [_coverage("deep_search", "Deeper search", "failed", "Search key unavailable")]}
+    started = time.perf_counter()
+    try:
+        with ThreadPoolExecutor(max_workers=len(queries)) as pool:
+            batches = list(pool.map(lambda query: _serper(query, key), queries))
+    except requests.RequestException as exc:
+        return {"deep_search_done": True, "search_trace": [{"phase": "deep_search", "query": q} for q in queries],
+                "coverage": [_coverage("deep_search", "Deeper search", "failed", type(exc).__name__)]}
+    seen = {item["url"] for item in state.get("assessments", [])}
+    pages = []
+    for batch in batches:
+        for hit in batch:
+            if len(pages) >= MAX_FOLLOW_UP_RESULTS:
+                break
+            url = hit.get("link", "")
+            if url in seen or not safe_public_url(url):
+                continue
+            seen.add(url)
+            try:
+                content = fetch_page(url)
+            except requests.RequestException:
+                continue
+            if content:
+                pages.append({"url": url, "title": hit.get("title", ""), "content": content,
+                              "retrieved_at": _now(), "sha256": hashlib.sha256(content.encode()).hexdigest()})
+    assessed = assess({**state, "pages": pages}) if pages else {"assessments": [], "metrics": {}}
+    # Gate and archive only the new sources; earlier ones are already gated.
+    new = archive({"assessments": adverse({"assessments": assessed["assessments"]})["assessments"]})["assessments"]
+    old, add = state.get("metrics", {}), assessed["metrics"]
+    return {"deep_search_done": True, "assessments": state.get("assessments", []) + new,
+            "search_trace": [{"phase": "deep_search", "query": q, "hits": len(h)} for q, h in zip(queries, batches)],
+            "coverage": [_coverage("deep_search", "Deeper search", "searched",
+                                   f"{len(queries)} agent queries, {len(new)} new sources")],
+            "metrics": {**{k: old.get(k, 0) + add.get(k, 0) for k in
+                           ("assess_seconds", "model_calls", "input_tokens", "cached_input_tokens", "output_tokens")},
+                        "deep_search_queries": len(queries), "deep_search_pages": len(pages),
+                        "deep_search_seconds": round(time.perf_counter() - started, 2),
+                        "search_queries": old.get("search_queries", 0) + len(queries)}}
+
+
 def _flag(code: str, group: str, label: str, reason: str, urls: list[str]) -> dict:
     return {"code": code, "group": group, "label": label, "reason": reason, "source_urls": list(dict.fromkeys(urls))}
 
@@ -567,12 +632,6 @@ def build_flags(state: ResearchState) -> list[dict]:
         elif hit["identity"] == "possible":
             result.append(_flag("possible_sanction_match", "review", "Possible sanctions list entry",
                                 f"{hit['list']} · {hit['matched_name']} · {hit['reason']}", [hit["url"]]))
-    for hit in state.get("register_hits", []):
-        if hit["measures"]:
-            group = "act" if hit["identity"] == "confirmed" else "review"
-            result.append(_flag("professional_measure", group, "BIG register measure",
-                                f"{hit['mailing_name']} · {'; '.join(hit['measures'])[:180]} · {hit['reason']}", [hit["url"]]))
-
     possible = [item for item in assessments if item["identity"] == "possible"]
     if possible:
         signals = sum(1 for item in possible if item.get("adverse_signal"))
@@ -601,8 +660,6 @@ def next_identifiers(state: ResearchState) -> list[str]:
         hints.append("Add an employer or company to allow a strong match.")
     if not state.get("birth_year"):
         hints.append("Add a birth year to confirm or rule out sanctions candidates and ages in news reports.")
-    if state.get("profession", "unknown") == "unknown":
-        hints.append("Add a profession to include professional registers.")
     return hints
 
 
@@ -619,7 +676,8 @@ def assemble(state: ResearchState) -> dict:
             metrics.get("search_queries", 0) * 0.001
             + (metrics.get("input_tokens", 0) - metrics.get("cached_input_tokens", 0)) * 0.40 / 1_000_000
             + metrics.get("cached_input_tokens", 0) * 0.10 / 1_000_000
-            + metrics.get("output_tokens", 0) * 1.60 / 1_000_000,
+            + metrics.get("output_tokens", 0) * 1.60 / 1_000_000
+            + review_agent.review_cost(metrics),
             5,
         )
     coverage = state.get("coverage", []) + [
@@ -637,6 +695,7 @@ def assemble(state: ResearchState) -> dict:
         ],
         "sanction_hits": [h for h in state.get("sanction_hits", []) if h["identity"] != "unrelated"],
         "register_hits": state.get("register_hits", []),
+        "review": state.get("review"),
         "flags": flags,
         "risk_flags": list(dict.fromkeys(f["label"] for f in flags)),
         "coverage": coverage,
@@ -659,23 +718,26 @@ def build_graph():
     graph.add_node("search", search)
     graph.add_node("fetch", fetch)
     graph.add_node("sanctions", check_sanctions)
-    graph.add_node("big_register", check_big)
     graph.add_node("identity", assess)
     graph.add_node("follow_leads", follow_leads)
     graph.add_node("adverse", adverse)
     graph.add_node("archive", archive)
+    graph.add_node("review", review)
+    graph.add_node("deep_search", deep_search)
     graph.add_node("assemble", assemble)
     graph.add_edge(START, "intake")
     # Independent branches run in parallel and join before the identity step.
     graph.add_edge("intake", "search")
     graph.add_edge("intake", "sanctions")
-    graph.add_edge("intake", "big_register")
     graph.add_edge("search", "fetch")
-    graph.add_edge(["fetch", "sanctions", "big_register"], "identity")
+    graph.add_edge(["fetch", "sanctions"], "identity")
     graph.add_edge("identity", "follow_leads")
     graph.add_edge("follow_leads", "adverse")
     graph.add_edge("adverse", "archive")
-    graph.add_edge("archive", "assemble")
+    graph.add_edge("archive", "review")
+    # The review agent decides whether one deeper search pass is worth it.
+    graph.add_conditional_edges("review", route_after_review, {"deep_search": "deep_search", "assemble": "assemble"})
+    graph.add_edge("deep_search", "review")
     graph.add_edge("assemble", END)
     return graph.compile()
 

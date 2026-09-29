@@ -195,9 +195,13 @@ class IdentityWorkflowTests(unittest.TestCase):
              patch("identity_workflow.safe_public_url", return_value=True):
             result = search({"name": "Alex Jansen", "city": "Utrecht", "aliases": ["lex"]})
         urls = [item["url"] for item in result["results"]]
-        self.assertEqual(result["metrics"]["search_queries"], 6)
+        # Six base queries plus the enforced insolvency and regional-news queries.
+        self.assertEqual(result["metrics"]["search_queries"], 8)
         self.assertEqual(len(urls), 24)
-        self.assertEqual(len(result["search_trace"]), 6)
+        self.assertEqual(len(result["search_trace"]), 8)
+        queries = " ".join(item["query"] for item in result["search_trace"])
+        self.assertIn("site:faillissementsverslagen.com", queries)
+        self.assertIn("site:rtvoost.nl", queries)
         for group in ("dutch", "official", "alias", "identity"):
             self.assertTrue(any(f"{group}.example" in url for url in urls), group)
 
@@ -245,7 +249,7 @@ class IdentityWorkflowTests(unittest.TestCase):
             })["report"]
         statuses = {c["key"]: c["status"] for c in report["coverage"]}
         self.assertEqual(statuses["sanctions"], "failed")
-        self.assertEqual(statuses["big"], "not_applicable")
+        self.assertNotIn("big", statuses)
         self.assertIn("source_failed", [f["code"] for f in report["flags"]])
 
     def test_pdf_is_generated_for_review_draft(self):

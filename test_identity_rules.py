@@ -2,7 +2,6 @@ import unittest
 import zipfile
 from io import BytesIO
 
-import big_register
 import sanctions
 from identity_rules import compare_age, compare_city, compare_employer, compare_name, decide_tier, search_aliases, split_name
 
@@ -40,6 +39,8 @@ class NameTests(unittest.TestCase):
         self.assertIn("Appie B.", forms)
         self.assertIn("Appie Bril", forms)
         self.assertLessEqual(len(forms), 6)
+        self.assertEqual(search_aliases("Edwin Kamps Smit", [])[1], "Edwin K.S.")
+        self.assertEqual(compare_name("Edwin Kamps Smit", None, "Edwin K.S. (41) uit Deventer"), "partial")
 
     def test_other_first_name_conflicts(self):
         self.assertEqual(compare_name("Albert Bril", "Peter Bril", "Peter Bril sprak"), "conflict")
@@ -131,25 +132,6 @@ class SanctionsTests(unittest.TestCase):
         self.assertEqual(sanctions.match_entries(entries, "Alex Jansen", 1990)[0]["identity"], "unrelated")
         self.assertEqual(sanctions.match_entries(entries, "Alex Jansen", None)[0]["identity"], "possible")
         self.assertEqual(sanctions.match_entries(entries, "Maria Peters", None), [])
-
-
-BIG_XML = b"""<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body>
-<ListHcpApprox4Result xmlns="http://services.cibg.nl/ExternalUser"><ListHcpApprox><ListHcpApprox4>
- <BirthSurname>Jansen</BirthSurname><MailingName>A. Jansen</MailingName><Initial>A.</Initial>
- <WorkAddress1><City>Utrecht</City><CountryCode>528</CountryCode></WorkAddress1>
- <ArticleRegistration><ArticleRegistrationExtApp><ArticleRegistrationNumber>123</ArticleRegistrationNumber></ArticleRegistrationExtApp></ArticleRegistration>
- <JudgmentProvision><JudgmentProvisionExtApp><PublicDescription>Berisping</PublicDescription><Public>true</Public></JudgmentProvisionExtApp></JudgmentProvision>
-</ListHcpApprox4></ListHcpApprox></ListHcpApprox4Result></soap:Body></soap:Envelope>"""
-
-
-class BigRegisterTests(unittest.TestCase):
-    def test_measures_and_city_are_read(self):
-        records = big_register.parse_response(BIG_XML)
-        self.assertEqual(records[0]["measures"], ["Berisping"])
-        hits = big_register.assess_records(records, "Alex Jansen", "Utrecht")
-        self.assertEqual(hits[0]["identity"], "confirmed")
-        self.assertEqual(big_register.assess_records(records, "Alex Jansen", "Zwolle")[0]["identity"], "possible")
-        self.assertEqual(big_register.assess_records(records, "Bram Jansen", "Utrecht"), [])
 
 
 if __name__ == "__main__":
