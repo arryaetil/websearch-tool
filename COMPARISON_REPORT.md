@@ -55,3 +55,16 @@ Three runs per case, run consecutively on 29 September 2026. Median (minimum–m
 | Namesake of H1 | 1 | 19.2 / 78.5 | 0.037 / 0.031 | Low / Low |
 
 The namesake case uses H1's public name with a fictional city, employer and birth year. Both approaches rejected the link (original 20 Low, LangGraph 8 Low); LangGraph linked no findings. LangGraph is cheaper in every case but slower, mainly because the deeper-search loop runs a second review in C1 and in the namesake case. The original's hosted-search latency varied between morning and afternoon runs (about 68 s versus 40 s), so single runs do not support a speed claim.
+
+## Final configuration (deeper search only while the reviewer is in doubt)
+
+Three runs per case; the namesake case once. Median (minimum–maximum):
+
+| Case | Seconds: original / LangGraph | Estimated USD: original / LangGraph | Verdicts: original / LangGraph |
+| --- | --- | --- | --- |
+| H1 | 41.4 (28.3–42.0) / 61.6 (52.3–68.9) | 0.057 (0.053–0.063) / 0.041 (0.039–0.041) | Very High / Very High |
+| N1 | 30.2 (27.5–30.8) / 40.4 (37.8–46.0) | 0.048 / 0.022 (0.019–0.027) | Very High / Very High |
+| C1 | 36.3 (30.9–41.1) / 52.1 (45.4–71.9) | 0.055 (0.053–0.064) / 0.029 (0.027–0.030) | High / Very High |
+| Namesake of H1 | 20.8 / 48.8 | 0.038 / 0.023 | Low / Low |
+
+Skipping the deeper search on clear verdicts brought C1 from about 90 s to 52 s and its cost from $0.043 to $0.029. LangGraph remains 10–28 s slower than one hosted-search call and 30–58% cheaper. Both approaches rejected the namesake.
