@@ -158,3 +158,40 @@ button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid #a9
 @supports not ((-webkit-backdrop-filter:blur(1px)) or (backdrop-filter:blur(1px))){.login-card{background:#101b2d}.search-panel{background:#1b2b40}.source-pane{background:#1c2a3d}.sidebar{background:#101a29}}
 @media(max-width:680px){.login-card{background:linear-gradient(150deg,#1d2e45e8,#0c1729f2)}.search-panel{background:linear-gradient(145deg,#2a3f59df,#132238eb)}.sidebar{background:#111e30f2}}
 @media(prefers-reduced-motion:reduce){.login-card form button,.search-submit{transition:none}.login-card form button:active:not(:disabled),.search-submit:active:not(:disabled){transform:none}}
+
+/* Liquid glass everywhere: three material weights. Thick for structure and the evidence
+   reading plane, regular for panels, thin fills inside panels (never glass on glass). */
+:root{--mat-thick:#0f1a2bd1;--mat-thin:#d7e8ff0d;--mat-thin-hover:#d7e8ff17;--mat-edge:#d7e8ff3d;--mat-edge-soft:#d7e8ff1f;--mat-highlight:inset 0 1px 0 #ffffff3d;--mat-shadow:0 18px 44px #02081466;--mat-shadow-sm:0 8px 22px #0208144d}
+:root{--mat-regular:linear-gradient(150deg,#2c4462a6,#17263cb8 60%,#101c2ec4)}
+.main-area{background:radial-gradient(ellipse 760px 540px at 80% 4%,#2a619561,transparent 72%),radial-gradient(ellipse 560px 420px at 6% 40%,#4a44a336,transparent 75%),radial-gradient(ellipse 820px 520px at 60% 96%,#0f5aa033,transparent 74%),#0a101a;background-attachment:fixed}
+.result-summary,.flag-panel,.coverage-panel,.results-workspace,.run-metrics,.coverage-details,.running-panel,.error-banner,.risk-summary{position:relative;isolation:isolate;border:1px solid var(--mat-edge);border-radius:14px;background:var(--mat-regular);box-shadow:var(--mat-highlight),var(--mat-shadow-sm);-webkit-backdrop-filter:blur(24px) saturate(140%);backdrop-filter:blur(24px) saturate(140%)}
+.result-summary{padding:16px 20px;margin-bottom:22px}.result-summary>div{border-right-color:var(--mat-edge-soft)}
+.risk-summary{padding:12px 16px;margin-top:0}
+.results-workspace{box-shadow:var(--mat-highlight),var(--mat-shadow);overflow:hidden}
+.source-pane{-webkit-backdrop-filter:none;backdrop-filter:none;background:#d7e8ff08;border-right-color:var(--mat-edge-soft)}
+.detail-pane{background:var(--mat-thick);-webkit-backdrop-filter:blur(34px) saturate(120%);backdrop-filter:blur(34px) saturate(120%);box-shadow:inset 1px 0 0 #ffffff12}
+.identity-assessment{background:var(--mat-thin);border-color:var(--mat-edge-soft);box-shadow:var(--mat-highlight)}
+.claim-card,.coverage-item{background:var(--mat-thin);border-color:var(--mat-edge-soft)}
+.quote{color:#c9d3e1}
+.source-item:hover{background:var(--mat-thin-hover)}.source-item.selected{box-shadow:var(--mat-highlight),inset 2px 0 0 #9cc5fa}
+.status-pill{-webkit-backdrop-filter:none;backdrop-filter:none}
+.flag-row{border-top-color:var(--mat-edge-soft)}.flag-panel-head,.next-identifiers{border-color:var(--mat-edge-soft)}
+.flag-tag.coverage{background:var(--mat-thin-hover)}
+.running-panel{border-color:#9cc5fa55;color:#d4e6ff}.running-panel span{color:#aebfd6}
+.error-banner{border-color:#f19a9a66;background:linear-gradient(150deg,#5a2a33a6,#2a1820c4);color:#ffd9d9}
+.coverage-details{border-color:#e6b77855;background:linear-gradient(150deg,#4a3822a6,#241a12c4);color:#f6e1c4}
+.run-metrics{padding:12px 16px;color:#c0cad8}
+.case-avatar{background:linear-gradient(150deg,#3a5a82a6,#1b2c44c4);border:1px solid var(--mat-edge);box-shadow:var(--mat-highlight);color:#eaf2ff;-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
+.outline-button,.open-source-button{border:1px solid var(--mat-edge);background:var(--mat-thin);box-shadow:var(--mat-highlight);-webkit-backdrop-filter:blur(16px) saturate(140%);backdrop-filter:blur(16px) saturate(140%);transition:background .18s ease-out,transform .1s ease-out}
+.outline-button:hover,.open-source-button:hover{background:var(--mat-thin-hover)}.outline-button:active,.open-source-button:active{transform:scale(.98)}
+.new-research{border:1px solid var(--mat-edge);background:linear-gradient(150deg,#3b5f8c8c,#1c2f4aa6);box-shadow:var(--mat-highlight),var(--mat-shadow-sm)}
+.saved-run{border-radius:9px;transition:background .18s ease-out}.saved-run:hover{background:var(--mat-thin-hover)}
+.tech-hero{border-bottom-color:var(--mat-edge-soft);-webkit-mask-image:linear-gradient(180deg,#000 72%,transparent);mask-image:linear-gradient(180deg,#000 72%,transparent)}
+/* The one authored moment: the evidence plane materializes when the selected source changes. */
+@keyframes materialize{from{opacity:.4;filter:blur(6px);transform:scale(.995)}to{opacity:1;filter:none;transform:none}}
+.detail-pane>*{animation:materialize .22s cubic-bezier(.16,1,.3,1)}
+@supports not ((-webkit-backdrop-filter:blur(1px)) or (backdrop-filter:blur(1px))){.result-summary,.flag-panel,.coverage-panel,.results-workspace,.run-metrics,.running-panel,.risk-summary{background:#15233a}.detail-pane{background:#0f1a2b}}
+@media(prefers-reduced-transparency:reduce){.result-summary,.flag-panel,.coverage-panel,.results-workspace,.run-metrics,.coverage-details,.running-panel,.error-banner,.risk-summary,.detail-pane,.search-panel,.sidebar,.topbar,.login-card,.case-avatar,.outline-button,.open-source-button{background:#132033;-webkit-backdrop-filter:none;backdrop-filter:none}}
+@media(prefers-contrast:more){.result-summary,.flag-panel,.coverage-panel,.results-workspace,.detail-pane,.search-panel{background:#0b1320;border-color:#d7e8ffaa;-webkit-backdrop-filter:none;backdrop-filter:none}}
+@media(prefers-reduced-motion:reduce){.detail-pane>*{animation:none}.outline-button,.open-source-button,.saved-run{transition:none}}
+@media(max-width:680px){.main-area{background-attachment:scroll}.detail-pane{background:#0f1a2bf0}}
