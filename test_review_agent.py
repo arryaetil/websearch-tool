@@ -73,8 +73,10 @@ class ReviewAgentTests(unittest.TestCase):
         self.assertEqual((review["score"], review["label"]), (0, "No relevant sources"))
 
     def test_routing_runs_deeper_search_once_for_unresolved_cases(self):
-        wanted = {"review": {"deeper_search": {"needed": True, "queries": ['"Jan de V." Zwolle']}}}
+        wanted = {"review": {"score": 60, "deeper_search": {"needed": True, "queries": ['"Jan de V." Zwolle']}}}
         self.assertEqual(route_after_review({**STATE, **wanted}), "deep_search")
+        for clear in (8, 90):  # A clear verdict ends the search.
+            self.assertEqual(route_after_review({**STATE, "review": {**wanted["review"], "score": clear}}), "assemble")
         self.assertEqual(route_after_review({**STATE, **wanted, "deep_search_done": True}), "assemble")
         confirmed = {**STATE, "assessments": [source("https://c.example", "confirmed", 3)], **wanted}
         self.assertEqual(route_after_review(confirmed), "assemble")

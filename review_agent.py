@@ -18,6 +18,7 @@ REVIEW_MODEL_DEFAULT = "gpt-5.6-luna"  # Chosen after the 29 Sep model replay; s
 # List rates per million tokens (input, output), OpenAI pricing page, 29 Sep 2026.
 REVIEW_RATES = {"gpt-5.6-luna": (0.20, 1.20), "gpt-5.1": (1.25, 10.0)}
 MAX_DEEP_QUERIES = 3
+DOUBT_RANGE = (45, 84)  # Moderate and High: only then is a deeper search worth its time.
 GUILT_WORDS = re.compile(r"\b(guilty|schuldig|fraudeur|fraudster|oplichter|crimineel|criminal|crook)\b", re.I)
 
 REVIEW_INSTRUCTIONS = """You are the review agent in an evidence-first adverse media check about one person.

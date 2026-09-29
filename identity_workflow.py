@@ -551,12 +551,18 @@ def review(state: ResearchState) -> dict:
 
 
 def route_after_review(state: ResearchState) -> str:
-    """Deeper search runs at most once, only for unresolved cases the agent can act on."""
+    """Deeper search runs at most once, only while the reviewer is in doubt.
+
+    A clear Low (below 45) or Very High (85 and above) verdict needs no further search.
+    """
     items = state.get("assessments", [])
     unresolved = not any(a["identity"] == "confirmed" for a in items) and any(
         a["identity"] == "possible" for a in items)
-    wanted = state.get("review", {}).get("deeper_search", {})
-    if unresolved and wanted.get("needed") and wanted.get("queries") and not state.get("deep_search_done"):
+    review_state = state.get("review", {})
+    score = review_state.get("score")
+    in_doubt = score is not None and review_agent.DOUBT_RANGE[0] <= score <= review_agent.DOUBT_RANGE[1]
+    wanted = review_state.get("deeper_search", {})
+    if unresolved and in_doubt and wanted.get("needed") and wanted.get("queries") and not state.get("deep_search_done"):
         return "deep_search"
     return "assemble"
 
