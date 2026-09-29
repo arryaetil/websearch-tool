@@ -4,7 +4,7 @@ from io import BytesIO
 
 import big_register
 import sanctions
-from identity_rules import compare_age, compare_city, compare_name, decide_tier, search_aliases, split_name
+from identity_rules import compare_age, compare_city, compare_employer, compare_name, decide_tier, search_aliases, split_name
 
 
 def card(**statuses):
@@ -44,6 +44,12 @@ class NameTests(unittest.TestCase):
     def test_other_first_name_conflicts(self):
         self.assertEqual(compare_name("Albert Bril", "Peter Bril", "Peter Bril sprak"), "conflict")
 
+    def test_nickname_and_middle_initial_do_not_conflict(self):
+        self.assertEqual(compare_name("Bernard Madoff", "Bernie Madoff", "Bernie Madoff lived in New York"), "partial")
+        self.assertEqual(compare_name("Bernard Madoff", "Bernard L. Madoff", "Bernard L. Madoff"), "full")
+        self.assertEqual(compare_name("Bernard Madoff", "Bernard Lawrence (Bernie) Madoff",
+                                      "Bernard Lawrence (Bernie) Madoff"), "full")
+
 
 class RuleTests(unittest.TestCase):
     def test_age_uses_publication_year_with_one_year_margin(self):
@@ -56,6 +62,14 @@ class RuleTests(unittest.TestCase):
     def test_city_conflict_only_when_stated(self):
         self.assertEqual(compare_city("Zwolle", "Groningen", ""), "conflict")
         self.assertEqual(compare_city("Zwolle", None, "Een man uit Zwolle"), "match")
+
+    def test_employer_abbreviation_must_be_linked_in_source(self):
+        self.assertEqual(compare_employer("SP", "Socialistische Partij",
+                                          "Namens de Socialistische Partij (SP) was hij Kamerlid"), "match")
+        self.assertEqual(compare_employer("SP", "Socialistische Partij",
+                                          "De Socialistische Partij en elders een SP-brief"), "absent")
+        self.assertEqual(compare_employer("Bouwman Makelaars", "Jaëlroh B.V.",
+                                          "Albert Jansen bestuurde Jaëlroh B.V."), "absent")
 
     def test_conflict_always_wins(self):
         self.assertEqual(decide_tier(card(name="full", city="match", employer="match", age="conflict"))[0], "unrelated")

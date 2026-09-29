@@ -16,6 +16,7 @@ import socket
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
+from io import BytesIO
 from pathlib import Path
 from typing import Annotated, TypedDict
 from urllib.parse import urlparse
@@ -25,6 +26,7 @@ from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from langgraph.graph import END, START, StateGraph
 from openai import OpenAI
+from pypdf import PdfReader
 
 import big_register
 import sanctions
@@ -36,10 +38,12 @@ from identity_rules import (
 load_dotenv(Path(__file__).parent / ".env")
 
 
-MAX_RESULTS = 12
+MAX_RESULTS = 24  # Candidate URLs; inaccessible hits need replacements.
+MAX_PAGES = 8     # Bound model cost after retrieval.
 MAX_FOLLOW_UP_QUERIES = 2
 MAX_FOLLOW_UP_RESULTS = 4
 MAX_BYTES = 500_000
+MAX_PDF_BYTES = 4_000_000
 OFFICIAL_SITES = ("afm.nl", "dnb.nl", "kvk.nl", "rechtspraak.nl")
 PROFESSIONS = ("healthcare", "lawyer", "other", "unknown")
 MANUAL_CHECKS = [
@@ -58,7 +62,6 @@ ADVERSE_FLAGS = {  # Most serious first; one flag per code.
     "professional_measure": ("professional_measure", "Professional measure reported"),
     "charge": ("reported_allegation", "Adverse reporting linked"),
     "allegation": ("reported_allegation", "Adverse reporting linked"),
-    "other": ("reported_allegation", "Adverse reporting linked"),
 }
 
 
@@ -138,10 +141,17 @@ def search(state: ResearchState) -> dict:
     queries = [
         f'"{name}" "{state["city"]}" (investigation OR fraud OR misconduct OR sanction)',
         f'"{name}" "{state["city"]}" (onderzoek OR fraude OR boete OR verdenking)',
-        f'"{name}" (' + " OR ".join(f"site:{site}" for site in OFFICIAL_SITES) + ")",
     ]
     # News reports often shorten names ("Appie B.") or use a roepnaam; search those too.
     forms = search_aliases(name, state.get("aliases", []))
+    supplied = state.get("aliases", [])
+    if supplied:
+        focused = next((form for form in forms if form.casefold().startswith(supplied[0].casefold() + " ")), None)
+        if focused:
+            queries.append(f'"{focused}" "{state["city"]}"')
+    if state.get("employer"):
+        queries.append(f'"{name}" "{state["employer"]}" faillissement')
+    queries.append(f'"{name}" (' + " OR ".join(f"site:{site}" for site in OFFICIAL_SITES) + ")")
     if forms:
         queries.append("(" + " OR ".join(f'"{form}"' for form in forms) + f') "{state["city"]}"')
     if state.get("employer"):
@@ -194,12 +204,22 @@ def fetch_page(url: str) -> str:
     )
     if response.is_redirect or response.status_code != 200:
         return ""
-    if "text/html" not in response.headers.get("content-type", "").lower():
+    content_type = response.headers.get("content-type", "").lower()
+    is_pdf = "application/pdf" in content_type or urlparse(url).path.lower().endswith("/pdf")
+    if not is_pdf and "text/html" not in content_type:
         return ""
     data = bytearray()
     for chunk in response.iter_content(8192):
         data.extend(chunk)
-        if len(data) > MAX_BYTES:
+        if len(data) > (MAX_PDF_BYTES if is_pdf else MAX_BYTES):
+            return ""
+    if is_pdf:
+        try:
+            reader = PdfReader(BytesIO(data), strict=False)
+            return re.sub(r"\s+", " ", " ".join(
+                page.extract_text() or "" for page in reader.pages[:25]
+            ))[:20_000]
+        except Exception:
             return ""
     soup = BeautifulSoup(bytes(data), "html.parser")
     for tag in soup(["script", "style", "nav", "footer"]):
@@ -211,7 +231,7 @@ def fetch_page(url: str) -> str:
 def fetch(state: ResearchState) -> dict:
     started = time.perf_counter()
     pages, errors = [], []
-    for hit in state.get("results", []):
+    def read_hit(hit: dict) -> tuple[dict | None, str | None]:
         url = hit["url"]
         try:
             content = fetch_page(url)
@@ -227,14 +247,25 @@ def fetch(state: ResearchState) -> dict:
 
                 content = asyncio.run(crawl())[:20_000]
             if content:
-                pages.append({
+                return ({
                     **hit,
                     "content": content,
                     "retrieved_at": _now(),
                     "sha256": hashlib.sha256(content.encode()).hexdigest(),
-                })
+                }, None)
         except Exception as exc:
-            errors.append(f"Could not read {url}: {type(exc).__name__}")
+            return None, f"Could not read {url}: {type(exc).__name__}"
+        return None, None
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        results = state.get("results", [])
+        for start in range(0, len(results), 8):
+            for page, error in pool.map(read_hit, results[start:start + 8]):
+                if page and len(pages) < MAX_PAGES:
+                    pages.append(page)
+                if error:
+                    errors.append(error)
+            if len(pages) >= MAX_PAGES:
+                break
     return {"pages": pages, "errors": errors, "metrics": {
         "fetch_seconds": round(time.perf_counter() - started, 2),
         "pages_read": len(pages),
@@ -290,7 +321,8 @@ publication_date: YYYY-MM-DD when the source states it, else null.
 summary: one or two neutral sentences for an analyst on who the source describes.
 claims: array of objects with summary, exact_quote and type, where type is one of
   allegation, charge, conviction, settlement (a deal with prosecutors), fine, sanction,
-  professional_measure, other.
+  professional_measure. Omit ordinary biographical facts such as death, career
+  history or criticism of a regulator that does not concern this person.
 leads: array of at most two objects with kind (company or court_case), value (the
   company name or case identifier), and exact_quote. Include a lead only when the
   source explicitly links that company or case to the named person. The quote must
@@ -315,6 +347,15 @@ def _year(value) -> int | None:
     return int(match.group(1)) if match else None
 
 
+def _names_another_person(quote: str | None, subject_name: str) -> bool:
+    """Reject a location quote that explicitly attributes it to someone else."""
+    if not quote:
+        return False
+    people = re.findall(r"\b(?:de heer|mevrouw|dhr\.?|mr\.?)\s+([A-Z][\wÀ-ÿ.-]+\s+[A-Z][\wÀ-ÿ.-]+)", quote)
+    return bool(people) and all(compare_name(subject_name, name, name) in {"absent", "conflict"}
+                                for name in people)
+
+
 def build_identity_card(state: ResearchState, person: dict, publication_year: int | None, text: str) -> dict:
     quote_key = lambda field: "name_quote" if field == "name_as_written" else f"{field}_quote"
     fact = lambda field: _verified(person.get(field), person.get(quote_key(field)), text)
@@ -325,11 +366,17 @@ def build_identity_card(state: ResearchState, person: dict, publication_year: in
     except (TypeError, ValueError):
         age = None
     age_status, age_note = compare_age(state.get("birth_year"), age, publication_year)
+    city_value = fact("city")
+    city_quote = quote("city")
+    city_text = text
+    if _names_another_person(city_quote, state["name"]):
+        city_value = city_quote = None
+        city_text = ""
     return {
         "name": {"status": compare_name(state["name"], fact("name_as_written"), text, state.get("aliases", [])),
                  "value": fact("name_as_written"), "quote": quote("name_as_written")},
-        "city": {"status": compare_city(state.get("city", ""), fact("city"), text),
-                 "value": fact("city"), "quote": quote("city")},
+        "city": {"status": compare_city(state.get("city", ""), city_value, city_text),
+                 "value": city_value, "quote": city_quote},
         "employer": {"status": compare_employer(state.get("employer", ""), fact("employer"), text),
                      "value": fact("employer"), "quote": quote("employer")},
         "age": {"status": age_status, "value": age, "quote": quote("age"), "note": age_note},
@@ -345,10 +392,9 @@ def assess(state: ResearchState) -> dict:
         return {"assessments": [], "metrics": {"assess_seconds": 0.0, "model_calls": 0,
                 "input_tokens": 0, "cached_input_tokens": 0, "output_tokens": 0}}
     client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
-    assessments = []
-    input_tokens = output_tokens = cached_tokens = 0
     subject = {k: state.get(k) for k in ("name", "aliases", "city", "employer", "birth_year", "profession")}
-    for page in pages:
+
+    def assess_page(page: dict) -> tuple[dict, tuple[int, int, int]]:
         payload = {"subject": subject, "source_url": page["url"], "source_text": page["content"]}
         response = client.responses.create(
             model=os.environ.get("IDENTITY_MODEL", "gpt-4.1-mini"),
@@ -356,10 +402,9 @@ def assess(state: ResearchState) -> dict:
             input="Return a JSON extraction for this source:\n" + json.dumps(payload, ensure_ascii=False),
             text={"format": {"type": "json_object"}},
         )
-        if response.usage:
-            input_tokens += response.usage.input_tokens
-            output_tokens += response.usage.output_tokens
-            cached_tokens += getattr(response.usage.input_tokens_details, "cached_tokens", 0) or 0
+        usage = response.usage
+        counts = ((usage.input_tokens or 0), (usage.output_tokens or 0),
+                  getattr(usage.input_tokens_details, "cached_tokens", 0) or 0) if usage else (0, 0, 0)
         data = json.loads(response.output_text)
         person = data.get("person") if isinstance(data.get("person"), dict) else {}
         text = page["content"]
@@ -368,8 +413,8 @@ def assess(state: ResearchState) -> dict:
         claims = []
         for claim in data.get("claims", [])[:5]:
             quote = str(claim.get("exact_quote", "")).strip()
-            if quote and _verified(quote, quote, text):
-                kind = claim.get("type") if claim.get("type") in ADVERSE_FLAGS else "other"
+            kind = claim.get("type")
+            if quote and kind in ADVERSE_FLAGS and _verified(quote, quote, text):
                 claims.append({"summary": str(claim.get("summary", "")), "quote": quote, "type": kind})
         leads = []
         if identity != "unrelated":
@@ -382,13 +427,21 @@ def assess(state: ResearchState) -> dict:
                         and _verified(value, quote, text) and value.casefold() in quote.casefold()):
                     leads.append({"kind": lead["kind"], "value": value, "source_url": page["url"]})
         summary = str(data.get("summary", "")).strip()
-        assessments.append({
+        assessment = {
             "url": page["url"], "title": page["title"], "identity": identity,
             "reason": f"{rule} {summary}".strip(), "identity_card": card,
             "claims": claims, "confidence_score": score,
             "leads": leads,
             "retrieved_at": page["retrieved_at"], "sha256": page["sha256"],
-        })
+        }
+        return assessment, counts
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        assessed = list(pool.map(assess_page, pages))
+    assessments = [item for item, _ in assessed]
+    input_tokens = sum(counts[0] for _, counts in assessed)
+    output_tokens = sum(counts[1] for _, counts in assessed)
+    cached_tokens = sum(counts[2] for _, counts in assessed)
     return {"assessments": assessments, "metrics": {
         "assess_seconds": round(time.perf_counter() - started, 2),
         "model_calls": len(assessments),
@@ -404,7 +457,10 @@ def follow_leads(state: ResearchState) -> dict:
         (lead["kind"], lead["value"])
         for item in state.get("assessments", []) if item["identity"] != "unrelated"
         for lead in item.get("leads", [])
-    ))[:MAX_FOLLOW_UP_QUERIES]
+    ))
+    initial_queries = {item["query"] for item in state.get("search_trace", [])}
+    leads = [lead for lead in leads if f'"{state["name"]}" "{lead[1]}"' not in initial_queries]
+    leads = leads[:MAX_FOLLOW_UP_QUERIES]
     if not leads:
         return {"metrics": {"follow_up_queries": 0, "follow_up_pages": 0}}
     key = os.environ.get("SERPER_API_KEY")

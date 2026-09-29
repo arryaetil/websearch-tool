@@ -13,7 +13,7 @@ The user's pasted Streamlit implementation is the baseline for the **person** ch
 
 `intake -> (search -> fetch | sanctions | BIG register) -> identity -> follow_leads -> adverse -> archive -> assemble`.
 
-Initial Serper queries cover English and Dutch adverse terms, official sites, name forms, employer/context and identity context. The graph reserves positions across query groups for up to 12 candidate URLs. A model extracts source facts and exact quotes; deterministic rules classify identity. Up to two quoted company/court leads trigger one further search pass and up to four additional source assessments. Query text and hit counts appear in `search_trace`. Each source assessment carries its own identity card and evidence. The graph does not infer guilt or treat an unverified possible identity as a confirmed finding.
+Initial Serper queries cover English and Dutch adverse terms, official sites, name forms, employer/context and identity context. The graph reserves positions across query groups for up to 24 candidate URLs and fetches reserve hits if earlier pages are unreadable; at most eight initial pages reach the model. A model extracts source facts and exact quotes; deterministic rules classify identity. Up to two quoted company/court leads trigger one further search pass and up to four additional source assessments. Fetch and source assessment use bounded parallelism. Query text and hit counts appear in `search_trace`. Each source assessment carries its own identity card and evidence. The graph does not infer guilt or treat an unverified possible identity as a confirmed finding.
 
 ## Quality gate before claiming parity
 

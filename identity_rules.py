@@ -26,7 +26,7 @@ NICKNAME_GROUPS = (
     ("jacobus", "jacob", "jaap", "koos", "co"), ("petrus", "pieter", "piet", "peter"), ("wilhelmus", "willem", "wim", "pim"),
     ("adrianus", "adriaan", "arie", "adri"), ("theodorus", "theo", "dorus"), ("antonius", "anton", "toon", "ton", "teun"),
     ("franciscus", "frans", "frank", "sjaak"), ("josephus", "joseph", "jozef", "jos", "sjef"), ("martinus", "martin", "tinus", "maarten"),
-    ("nicolaas", "klaas", "niek", "nico"), ("everardus", "evert", "eef"), ("bernardus", "bernard", "ben", "bennie", "bert"),
+    ("nicolaas", "klaas", "niek", "nico"), ("everardus", "evert", "eef"), ("bernardus", "bernard", "bernie", "ben", "bennie", "bert"),
     ("johanna", "jo", "hanna", "hanneke", "anneke"), ("maria", "marie", "mies", "mieke", "ria"), ("wilhelmina", "willemien", "mien", "wil", "mina"),
     ("elisabeth", "elizabeth", "els", "lies", "liesbeth", "betty"), ("catharina", "catrien", "karin", "tineke", "trien"),
     ("cornelia", "corrie", "nel", "neeltje"), ("geertruida", "truus", "trudy", "geertje"), ("margaretha", "margriet", "greet", "grietje"),
@@ -119,15 +119,17 @@ def compare_name(subject_name: str, written: str | None, text: str, aliases: tup
         seen = normalize(written)
         if any(_contains(seen, v) for v in full):
             return "full"
-        if any(_contains(seen, v) for v in partial):
-            return "partial"
         first, _, surname = split_name(subject_name)
         seen_first, _, seen_surname = split_name(written)
         if seen_surname == surname and seen_first and first:
             other = seen_first[0].rstrip(".")
+            if other == first[0]:
+                return "full"
             known = nicknames(first[0]) | {a for a in aliases if " " not in a}
             if len(other) > 1 and other != first[0] and other not in known:
                 return "conflict"
+        if any(_contains(seen, v) for v in partial):
+            return "partial"
     if any(_contains(body, v) for v in full):
         return "full"
     if any(_contains(body, v) for v in partial):
@@ -152,7 +154,15 @@ def compare_employer(subject_employer: str, written: str | None, text: str) -> s
     if not subject_employer:
         return "absent"
     if written:
-        return "match" if _same_place(subject_employer, written) else "conflict"
+        if _same_place(subject_employer, written):
+            return "match"
+        short, long = normalize(subject_employer), normalize(written)
+        if len(short) <= 5 and (_contains(normalize(text), f"{long} {short}") or
+                                _contains(normalize(text), f"{short} {long}")):
+            return "match"
+        # A person may direct or work for several organisations. Another named
+        # company is missing corroboration, not proof of a different person.
+        return "absent"
     return "match" if _contains(normalize(text), normalize(subject_employer)) else "absent"
 
 

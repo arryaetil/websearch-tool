@@ -2,7 +2,7 @@ import json
 import unittest
 from unittest.mock import MagicMock, patch
 
-from identity_workflow import adverse, assess, assemble, build_graph, follow_leads, safe_public_url, search
+from identity_workflow import adverse, assess, assemble, build_graph, fetch, fetch_page, follow_leads, safe_public_url, search
 from evidence_pdf import generate_evidence_pdf
 
 
@@ -35,7 +35,7 @@ class IdentityWorkflowTests(unittest.TestCase):
         item = self.assess_with_model(
             "A. Jansen lives in Utrecht.",
             {"person": person(name_as_written=("A. Jansen", "A. Jansen"), city=("Utrecht", "lives in Utrecht")),
-             "claims": [{"summary": "Lives in Utrecht", "exact_quote": "A. Jansen lives in Utrecht.", "type": "other"}]},
+             "claims": [{"summary": "Investigation reported", "exact_quote": "A. Jansen lives in Utrecht.", "type": "allegation"}]},
         )
         self.assertEqual(item["identity"], "possible")
         self.assertEqual(item["confidence_score"], 2)
@@ -111,6 +111,17 @@ class IdentityWorkflowTests(unittest.TestCase):
         self.assertEqual(item["identity_card"]["employer"]["status"], "absent")
         self.assertEqual(item["identity"], "possible")
 
+    def test_other_persons_city_is_not_an_identity_anchor(self):
+        item = self.assess_with_model(
+            "Alex Jansen directs Example Studio. De heer Jan Pouwels te Utrecht is also a director.",
+            {"person": person(name_as_written=("Alex Jansen", "Alex Jansen"),
+                               city=("Utrecht", "de heer Jan Pouwels te Utrecht"),
+                               employer=("Example Studio", "Alex Jansen directs Example Studio")),
+             "claims": []}, employer="Example Studio",
+        )
+        self.assertEqual(item["identity_card"]["city"]["status"], "absent")
+        self.assertEqual(item["identity"], "possible")
+
     def test_only_exact_evidence_is_kept(self):
         item = self.assess_with_model(
             "A report says Alex Jansen of Example Studio in Utrecht is under investigation for fraud.",
@@ -129,6 +140,16 @@ class IdentityWorkflowTests(unittest.TestCase):
         self.assertEqual(report["flags"][0]["code"], "reported_allegation")
         self.assertEqual(report["flags"][0]["group"], "act")
         self.assertEqual(report["risk_flags"], ["Adverse reporting linked"])
+
+    def test_biographical_fact_is_not_an_adverse_claim(self):
+        item = self.assess_with_model(
+            "Alex Jansen of Example Studio in Utrecht died in 2025.",
+            {"person": person(employer=("Example Studio", "Alex Jansen of Example Studio")),
+             "claims": [{"summary": "Died in 2025", "exact_quote": "died in 2025", "type": "other"}]},
+            employer="Example Studio",
+        )
+        self.assertEqual(item["identity"], "confirmed")
+        self.assertEqual(item["claims"], [])
 
     def test_flags_distinguish_unresolved_identity_and_coverage(self):
         report = assemble({
@@ -173,9 +194,9 @@ class IdentityWorkflowTests(unittest.TestCase):
              patch("identity_workflow.safe_public_url", return_value=True):
             result = search({"name": "Alex Jansen", "city": "Utrecht", "aliases": ["lex"]})
         urls = [item["url"] for item in result["results"]]
-        self.assertEqual(result["metrics"]["search_queries"], 5)
-        self.assertEqual(len(urls), 12)
-        self.assertEqual(len(result["search_trace"]), 5)
+        self.assertEqual(result["metrics"]["search_queries"], 6)
+        self.assertEqual(len(urls), 24)
+        self.assertEqual(len(result["search_trace"]), 6)
         for group in ("dutch", "official", "alias", "identity"):
             self.assertTrue(any(f"{group}.example" in url for url in urls), group)
 
@@ -192,6 +213,27 @@ class IdentityWorkflowTests(unittest.TestCase):
         self.assertEqual(result["metrics"]["search_queries"], 6)
         self.assertIn('"Example Studio"', result["search_trace"][0]["query"])
         self.assertEqual(result["assessments"], state["assessments"])
+
+    def test_fetch_uses_backup_candidates_when_initial_pages_are_unreadable(self):
+        hits = [{"url": f"https://example.com/{i}", "title": str(i)} for i in range(16)]
+        def text_for(url):
+            return "Readable source " * 30 if int(url.rsplit("/", 1)[-1]) >= 8 else ""
+        with patch("identity_workflow.fetch_page", side_effect=text_for):
+            result = fetch({"results": hits})
+        self.assertEqual(len(result["pages"]), 8)
+        self.assertEqual(result["pages"][0]["url"], "https://example.com/8")
+
+    def test_pdf_source_text_is_read(self):
+        response = MagicMock(status_code=200, is_redirect=False,
+                             headers={"content-type": "application/pdf"})
+        response.iter_content.return_value = [b"%PDF sample"]
+        reader = MagicMock()
+        reader.pages = [MagicMock()]
+        reader.pages[0].extract_text.return_value = "Albert Jansen is director of Example BV."
+        with patch("identity_workflow.safe_public_url", return_value=True), \
+             patch("identity_workflow.requests.get", return_value=response), \
+             patch("identity_workflow.PdfReader", return_value=reader):
+            self.assertIn("director of Example BV", fetch_page("https://example.com/report/pdf"))
 
     def test_graph_runs_branches_and_survives_failures(self):
         with patch("identity_workflow.search", return_value={"results": [], "coverage": []}), \

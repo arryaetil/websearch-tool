@@ -1,0 +1,22 @@
+# Person-check comparison: shareable summary
+
+Measured on 29 September 2026. Full case inputs, outputs, source URLs, and detailed analyst notes are stored only in the Git-ignored `data/` directory. Do not copy them into a public repository. The original Streamlit **person** baseline used Perplexity `sonar-deep-research`. This interim comparison instead uses the old person prompt/schema with OpenAI GPT-5.1 and hosted web search, as requested by the user.
+
+| Case | Purpose | Web search | LangGraph | Estimated variable cost: web search / LangGraph |
+| --- | --- | ---: | ---: | ---: |
+| H1 | Historical public positive control | 72.19 s | 76.45 s | $0.06274 / $0.02412 |
+| N1 | Public negative control: distinguish work *about* fraud from personal misconduct | 41.29 s | 33.89 s | $0.04566 / $0.02237 |
+| C1 | User-approved personal check | 51.34 s | 25.41 s | $0.05729 / $0.01924 |
+
+The costs are estimates from API usage and published list rates, not invoice totals. GPT-5.1 token rates and the web-search call price come from the [model page](https://developers.openai.com/api/docs/models/gpt-5.1) and [pricing page](https://developers.openai.com/api/docs/pricing). The LangGraph estimate uses the app's configured Serper and GPT-4.1 mini rates; hosting is excluded.
+
+## What the measurements show
+
+- LangGraph exposes each search query, stage timing, model usage and a source-level identity card with exact quotes. OpenAI's hosted [web-search response](https://developers.openai.com/api/docs/guides/tools-web-search) also exposes a search action and, in these runs, its search queries. LangGraph gives more control over individual steps; the hosted search is not wholly opaque.
+- Both methods avoided a false personal misconduct conclusion in N1. The initial LangGraph identity rules nevertheless mishandled a nickname, a middle name and an employer acronym in the control cases. Regression tests now cover those failures.
+- C1 is the decisive quality gap: the hosted search produced a relevant narrative, while LangGraph found related sources but did not establish a strong enough identity link for confirmed findings. Faster and cheaper is not sufficient. The full private report records the source-level reasons and the remaining analyst questions.
+- Parallel retrieval and assessment reduced elapsed time in follow-up H1 runs, but the number of readable pages varied. A speed claim requires matched workload and repeated runs. Reserve URLs and PDF extraction were added to improve coverage before another paired test.
+
+## Decision and next measurement
+
+Outcome quality has **not** reached the required parity. The next paired run should use a frozen case set with independent identity references and analyst-reviewed material findings. For each case record false links, missed material sources, quote support, elapsed time, model/tool usage, estimated and invoiced cost where available, and provider errors. Do not compare the old 0–100 confidence score numerically with LangGraph's per-source 0–3 identity tier. The four remaining user-suggested cases require reliable identity anchors before model evaluation.
