@@ -1,5 +1,14 @@
 # KYCX handover
 
+## Latest state (29 September 2026)
+
+- GitHub `main` is at `40f8900` (`Search on nicknames and shortened names, add Known as field`) when checked. Working tree was clean. Read `git log -5` before editing because work has continued beyond the older history below.
+- Latest frontend Railway deployment observed: `4b88426c-57c0-4f1d-abb7-fb8d4a1d036e`, status `SUCCESS`. The API and frontend have since gained Dutch source modules, a rule-based identity card, grouped risk flags, nickname matching and a Known as input. Check the current deployed API revision before claiming a particular feature works end to end.
+- `OSINT_PLAN.md` now prioritizes KVK extracts as a business-person identity anchor, BIG/NOvA for regulated professions, and official EU sanctions as a separate adverse source. KVK company-search API is not a general person-identity lookup. Rechtspraak generally pseudonymizes natural persons. Keep LangGraph as the routing and evidence workflow.
+- The Impeccable follow-up used two independent read-only agents. Nielsen UX estimate improved from 20/40 to 28/40 based on code, with no authenticated browser validation; technical audit was 13/20. The bundled detector returned `[]`. Remaining concerns were report-level score ambiguity, mixing substantive flags with review warnings, visibility of review/coverage limitations, and mobile menu accessibility. Do not claim 40/40.
+
+The sections below record earlier decisions and may describe older deployments or pre-integration behavior; use the latest code and deployment status for current facts.
+
 ## Repository and current state
 
 - GitHub remote: `https://github.com/arryaetil/websearch-tool.git`.
