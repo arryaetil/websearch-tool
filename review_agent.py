@@ -14,9 +14,9 @@ import re
 
 from identity_rules import normalize, split_name
 
-REVIEW_MODEL_DEFAULT = "gpt-5.1"
-# GPT-5.1 list rates per million tokens, as used by benchmark_person_research.py.
-REVIEW_RATES = {"gpt-5.1": (1.25, 10.0)}
+REVIEW_MODEL_DEFAULT = "gpt-5.6-luna"  # Chosen after the 29 Sep model replay; see COMPARISON_REPORT.md
+# List rates per million tokens (input, output), OpenAI pricing page, 29 Sep 2026.
+REVIEW_RATES = {"gpt-5.6-luna": (0.20, 1.20), "gpt-5.1": (1.25, 10.0)}
 MAX_DEEP_QUERIES = 3
 GUILT_WORDS = re.compile(r"\b(guilty|schuldig|fraudeur|fraudster|oplichter|crimineel|criminal|crook)\b", re.I)
 

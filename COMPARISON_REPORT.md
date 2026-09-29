@@ -20,3 +20,25 @@ The costs are estimates from API usage and published list rates, not invoice tot
 ## Decision and next measurement
 
 Outcome quality has **not** reached the required parity. The next paired run should use a frozen case set with independent identity references and analyst-reviewed material findings. For each case record false links, missed material sources, quote support, elapsed time, model/tool usage, estimated and invoiced cost where available, and provider errors. Do not compare the old 0–100 confidence score numerically with LangGraph's per-source 0–3 identity tier. The four remaining user-suggested cases require reliable identity anchors before model evaluation.
+
+## Update after the review agent (29 September 2026, afternoon)
+
+LangGraph now has a separate review agent that returns the original researcher's 0–100 score and verdict with source-cited sections. Same three cases, same inputs, run minutes apart:
+
+| Case | Time: original / LangGraph | Estimated cost: original / LangGraph | Verdict: original / LangGraph | Visible queries | Claims with verbatim quote and URL |
+| --- | ---: | ---: | --- | ---: | --- |
+| H1 | 68.2 s / 67.5 s | $0.066 / $0.065 | Very High / Very High | 4 / 11 | not in schema / 19 of 19 |
+| N1 | 58.6 s / 52.8 s | $0.055 / $0.045 | Very High / Very High | 4 / 11 | not in schema / none |
+| C1 | 67.9 s / 115.6 s | $0.057 / $0.097 | High / Very High | 4 / 13 | not in schema / 21 of 21 |
+
+The review ran on GPT-5.1 here; in C1 the deeper-search loop ran it twice (75 s). A replay of the review on identical evidence compared five models:
+
+| Review model | Seconds per review | USD per review | Verdicts | Section items (H1 / N1 / C1) |
+| --- | ---: | ---: | --- | --- |
+| gpt-5.1 | 25–42 | 0.021–0.036 | all Very High | 13 / 8 / 15 |
+| gpt-5.6-luna | 19–22 | 0.003–0.004 | all Very High | 13 / 7 / 15 |
+| gpt-5.6-terra | 19–28 | 0.026–0.039 | all Very High | 6 / 8 / 12 |
+| gpt-6-luna | 16–24 | 0.002 | all Very High | 6 / 7 / 12 |
+| gpt-6-sol | 28–39 | 0.025–0.034 | all Very High | 7 / 8 / 13 |
+
+**Decision:** the review agent now defaults to `gpt-5.6-luna`. All three cases concern the intended person, so this replay does not test whether a model rejects a namesake; a namesake case is still required. Risk flags differ: the original lists adverse items as flags, while LangGraph keeps unconfirmed-identity items under review because per-source rules found no strong source in C1.
