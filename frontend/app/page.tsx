@@ -6,7 +6,7 @@ import {
   ArrowDownToLine, ArrowRight, ArrowUpRight, CircleHelp, Command,
   Globe2, LoaderCircle, Menu, PanelLeftClose, Plus, Search, X, BrainCircuit, ThumbsDown, ThumbsUp,
   AtSign, BriefcaseBusiness, Building2, ChevronDown, Fingerprint, Gauge, Gavel, LibraryBig, Newspaper,
-  ScrollText, ShieldAlert, Tag, type LucideIcon,
+  Info, ScrollText, ShieldAlert, Tag, type LucideIcon,
 } from "lucide-react";
 
 type Identity = "confirmed" | "possible" | "unrelated";
@@ -29,7 +29,13 @@ type Source = {
   sha256: string;
 };
 type FlagGroup = "act" | "review" | "coverage";
-type Flag = { code: string; group: FlagGroup; label: string; reason: string; source_urls: string[] };
+type Flag = {
+  code: string; group: FlagGroup; label: string; reason: string; source_urls: string[];
+  severity?: "High" | "Medium" | "Low" | ""; identity?: "confirmed" | "likely" | "unconfirmed" | "";
+  items?: { summary: string; url: string }[]; mentions?: number;
+};
+type RiskSummary = { level: string; headline: string; identity: "confirmed" | "likely" | "none"; mentions?: number;
+  review?: { score: number | null; label: string } | null };
 type CoverageStatus = "searched" | "not_applicable" | "failed" | "stale" | "manual";
 type CoverageEntry = { key: string; label: string; status: CoverageStatus; detail: string; url?: string };
 type Profession = "unknown" | "healthcare" | "lawyer" | "other";
@@ -55,6 +61,7 @@ type Report = {
   coverage?: CoverageEntry[];
   next_identifiers?: string[];
   review?: Review | null;
+  risk_summary?: RiskSummary;
   review_status: string;
   limitations: string[];
   errors: string[];
@@ -352,24 +359,43 @@ export default function Home() {
             <div className="legacy-score-details"><h3>{identityVerdict}</h3><p>{adverseSource?.reason || "No source-supported adverse identity lead was found in the readable sources."}</p><div className="legacy-score-track"><span style={{ width: `${scoreOutOf100(adverseIdentityScore)}%` }}/></div><small>Four evidence levels (0, 33, 67, 100). This is not a probability of fraud or a risk score.</small></div>
           </section>
           </>}
+          {(() => {
+            const risk = report.risk_summary;
+            const allFlags = report.flags || [];
+            // Older saved runs have flags without severity or reported items.
+            if (!risk) return <section className="legacy-risk-card" aria-labelledby="flags-heading"><div className="risk-head"><RubriekIcon icon={ShieldAlert} tone="amber"/><h3 id="flags-heading">Risk Flags</h3></div>{decisionFlags.length ? <div className="legacy-flag-list">{decisionFlags.map((flag, index) => <div key={`${flag.code}-${index}`} className={`legacy-flag ${flag.group}`}><strong>{flag.label}</strong><p>{flag.reason}</p></div>)}</div> : <p className="legacy-empty">No risk flags in the sources searched. This is not a clearance.</p>}</section>;
+            const adverse = allFlags.filter((flag) => flag.severity);
+            const notes = allFlags.filter((flag) => !flag.severity && flag.group !== "coverage");
+            const levelSlug = risk.level.toLowerCase().replace(/\s+/g, "-");
+            const identityText = risk.identity === "confirmed" ? "Identity confirmed by the source rules for at least one finding."
+              : risk.identity === "likely" ? `Identity likely: review agent ${risk.review?.label ?? ""}${risk.review?.score != null ? ` (${risk.review.score}/100)` : ""}. Confirm the person before relying on these findings.`
+              : "";
+            const evidence = (url: string) => sources.some((source) => source.url === url)
+              ? <button type="button" className="risk-evidence" onClick={() => showSource(url)}>Evidence <ArrowRight size={12}/></button>
+              : <a className="risk-evidence" href={url} target="_blank" rel="noopener noreferrer">Source <ArrowUpRight size={12}/></a>;
+            return <section className={`legacy-risk-card risk-card level-${levelSlug}`} aria-labelledby="flags-heading">
+              <div className="risk-head"><RubriekIcon icon={ShieldAlert} tone="amber"/><h3 id="flags-heading">Risk Flags</h3></div>
+              <div className="risk-overview">
+                <div className={`risk-level level-${levelSlug}`}><span>Risk level</span><strong>{risk.level}</strong></div>
+                <div className="risk-overview-text"><p className="risk-headline">{risk.headline}</p>{identityText && <p className={`risk-identity ${risk.identity}`}>{identityText}</p>}</div>
+              </div>
+              {adverse.length > 0 && <div className="risk-flag-grid">{adverse.map((flag, index) => <article key={`${flag.code}-${index}`} className={`risk-flag sev-${(flag.severity || "").toLowerCase()}`}>
+                <header><span className="sev-chip">{flag.severity}</span><strong>{flag.label}</strong><span className={`identity-chip ${flag.identity}`}>{flag.identity === "confirmed" ? "Identity confirmed" : flag.identity === "likely" ? "Identity likely" : "Identity unconfirmed"}</span></header>
+                <ul>{(flag.items || []).map((item, itemIndex) => <li key={itemIndex}><span>{item.summary}</span>{evidence(item.url)}</li>)}</ul>
+                <footer>{flag.mentions ?? flag.source_urls.length} {(flag.mentions ?? 0) === 1 ? "mention" : "mentions"} in {flag.source_urls.length} {flag.source_urls.length === 1 ? "source" : "sources"}</footer>
+              </article>)}</div>}
+              {notes.length > 0 && <ul className="risk-notes">{notes.map((flag, index) => <li key={`${flag.code}-${index}`}><Info size={13} aria-hidden="true"/><span><strong>{flag.label}</strong> · {flag.reason}</span></li>)}</ul>}
+              <small className="risk-disclaimer">What sources report, not established guilt. Human review is required before any decision.</small>
+            </section>;
+          })()}
           <section className="source-summary" aria-labelledby="source-summary-title">
-            <div className="source-summary-heading"><div><span>RESEARCH OVERVIEW</span><h3 id="source-summary-title"><RubriekIcon icon={ScrollText} tone="violet"/>Summary of the sources</h3></div><strong>{relevantSources.length} relevant · {sources.length} read</strong></div>
-            {report.review && report.review.summary.length > 0 && <div className="review-coherence"><div className="review-coherence-title"><BrainCircuit size={15} aria-hidden="true"/> How the sources fit together</div><ul className="review-summary">{report.review.summary.map((item, index) => <li key={index}>{item.text}<RefChips refs={item.refs} review={report.review} onSource={showSource}/></li>)}</ul>{report.review.reasons.length > 0 && <ul className="review-reasons">{report.review.reasons.map((item, index) => <li key={index} className={item.direction}>{item.direction === "contradicts" ? <ThumbsDown size={14} aria-label="Contradicts"/> : <ThumbsUp size={14} aria-label="Supports"/>}<span>{item.text}</span><RefChips refs={item.refs} review={report.review} onSource={showSource}/></li>)}</ul>}</div>}
-            <p>{strongSources.length ? `${strongSources.length} ${strongSources.length === 1 ? "source has" : "sources have"} a strong identity match with reported findings.` : "No adverse finding has a strong identity match in the readable sources."} {reviewSources.length ? `${reviewSources.length} ${reviewSources.length === 1 ? "source mentions" : "sources mention"} possible adverse information that needs an analyst to confirm the person.` : "No unresolved adverse identity lead was extracted."}</p>
-            {relevantSources.length ? <div className="source-summary-list">{relevantSources.slice(0, 5).map((source) => {
-              const items = source.identity === "confirmed" ? source.claims : source.candidate_claims || [];
-              return <div className="source-summary-item" key={source.url}>
-                <span className={source.identity === "confirmed" ? "summary-status strong" : "summary-status review"}>{source.identity === "confirmed" ? "Linked" : "Verify identity"}</span>
-                <div><strong>{source.title || "Untitled source"}</strong><p>{items.slice(0, 2).map((item) => item.summary).join(" · ") || "No adverse claim could be extracted from this source."}</p><button type="button" onClick={() => showSource(source.url)}>View evidence <ArrowRight size={13}/></button></div>
-              </div>;
-            })}{relevantSources.length > 5 && <span className="source-summary-more">{relevantSources.length - 5} more source mentions in Media Mentions below.</span>}</div> : <p className="source-summary-empty">No source-supported adverse mentions were extracted from the readable pages. Search coverage may be incomplete.</p>}
+            <div className="source-summary-heading"><div className="heading-with-icon"><RubriekIcon icon={ScrollText} tone="violet"/><div><span>RESEARCH OVERVIEW</span><h3 id="source-summary-title">Summary of the sources</h3></div></div><strong>{relevantSources.length} relevant · {sources.length} read</strong></div>
+            {report.review && report.review.summary.length > 0 ? <div className="review-coherence"><div className="review-coherence-title"><BrainCircuit size={15} aria-hidden="true"/> How the sources fit together</div><ul className="review-summary">{report.review.summary.map((item, index) => <li key={index}>{item.text}<RefChips refs={item.refs} review={report.review} onSource={showSource}/></li>)}</ul>{report.review.reasons.length > 0 && <ul className="review-reasons">{report.review.reasons.map((item, index) => <li key={index} className={item.direction}>{item.direction === "contradicts" ? <ThumbsDown size={14} aria-label="Contradicts"/> : <ThumbsUp size={14} aria-label="Supports"/>}<span>{item.text}</span><RefChips refs={item.refs} review={report.review} onSource={showSource}/></li>)}</ul>}</div>
+              : <p>{strongSources.length ? `${strongSources.length} ${strongSources.length === 1 ? "source has" : "sources have"} a strong identity match with reported findings.` : "No adverse finding has a strong identity match in the readable sources."} {reviewSources.length ? `${reviewSources.length} ${reviewSources.length === 1 ? "source mentions" : "sources mention"} possible adverse information that needs an analyst to confirm the person.` : ""}</p>}
             <small>Summaries describe what sources report. They do not establish guilt or replace analyst review.</small>
           </section>
           {nameForms.length > 0 && <section className="legacy-variations"><h3><RubriekIcon icon={Tag}/>Name forms found in sources</h3>{nameForms.map((form) => <span key={form}>{form}</span>)}</section>}
-          <section className="legacy-risk-card" aria-labelledby="flags-heading"><h3 id="flags-heading"><RubriekIcon icon={ShieldAlert} tone="amber"/>Risk Flags</h3>
-            {decisionFlags.length ? <div className="legacy-flag-list">{decisionFlags.map((flag, index) => <div key={`${flag.code}-${index}`} className={`legacy-flag ${flag.group}`}><strong>{flag.group === "act" ? "Reported finding" : "Needs review"} · {flag.label}</strong><p>{flag.reason}</p>{flag.source_urls[0] && (sources.some((source) => source.url === flag.source_urls[0]) ? <button type="button" onClick={() => showSource(flag.source_urls[0])}>View evidence <ArrowRight size={13}/></button> : <a href={flag.source_urls[0]} target="_blank" rel="noopener noreferrer">Open register <ArrowUpRight size={13}/></a>)}</div>)}</div> : <p className="legacy-empty">No risk flags in the sources searched. This is not a clearance.</p>}
-            <p className="legacy-review-note">{report.confirmed_findings.length} linked findings · {report.candidate_findings?.length ?? 0} possible adverse leads for reviewer verification.</p>
-          </section>
+
 
           <ReportSections report={report} onSource={showSource} sourcesRef={sourcesRef}/>
 

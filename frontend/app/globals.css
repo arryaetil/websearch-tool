@@ -28,3 +28,28 @@
 /* Reduced transparency: every glass surface becomes an opaque plane. */
 @media(prefers-reduced-transparency:reduce){.sidebar,.topbar,.search-panel,.login-card,.legacy-flag,.legacy-score-card,.source-summary,.legacy-risk-card,.legacy-column details,.legacy-sources,.review-coherence,.rubriek-icon{-webkit-backdrop-filter:none!important;backdrop-filter:none!important;background:#132033!important}}
 @media(prefers-reduced-motion:reduce){.summary-chevron{transition:none}}
+
+/* Summary heading: icon beside the kicker and title, not between them. */
+.heading-with-icon{display:flex;align-items:center;gap:12px}.heading-with-icon .rubriek-icon{width:34px;height:34px}.heading-with-icon h3{display:block}
+/* Risk flags at a glance: overall level, what was reported, and how sure the identity is. */
+.risk-card{padding:22px 24px}.risk-head{display:flex;align-items:center;gap:10px;margin-bottom:16px}.risk-head h3{font-size:18px;color:#f5faff}
+.risk-overview{display:flex;align-items:stretch;gap:18px;padding:16px 18px;border:1px solid #d7e8ff2e;border-radius:14px;background:#0b16288c}
+.risk-level{display:flex;flex-direction:column;justify-content:center;min-width:130px;padding-right:18px;border-right:1px solid #d7e8ff2e}.risk-level span{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#a9bfd9}
+.risk-level strong{font-size:30px;line-height:1.1;letter-spacing:-.02em;margin-top:4px;color:#e6eef8}
+.risk-level.level-high strong{color:#ff9f9f}.risk-level.level-medium strong{color:#f3cd8b}.risk-level.level-low strong{color:#9cc5fa}.risk-level.level-none-found strong{color:#8fe3c1;font-size:22px}
+.risk-overview-text{display:flex;flex-direction:column;justify-content:center;gap:6px;min-width:0}.risk-headline{font-size:15px;font-weight:650;line-height:1.45;color:#f7fbff}
+.risk-identity{font-size:12px;line-height:1.5;color:#c9d6e6}.risk-identity.likely{color:#f3d9a8}.risk-identity.confirmed{color:#b6f0d4}
+.risk-flag-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-top:14px}
+.risk-flag{display:flex;flex-direction:column;gap:10px;padding:14px 16px;border:1px solid #d7e8ff29;border-radius:13px;background:linear-gradient(160deg,#d7e8ff12,#d7e8ff05)}
+.risk-flag.sev-high{border-color:#ff9f9f4d;background:linear-gradient(160deg,#ff9f9f1a,#d7e8ff05)}.risk-flag.sev-medium{border-color:#f3cd8b45;background:linear-gradient(160deg,#f3cd8b14,#d7e8ff05)}
+.risk-flag header{display:flex;align-items:center;flex-wrap:wrap;gap:8px}.risk-flag header strong{font-size:14px;color:#f5faff;flex:1 1 auto}
+.sev-chip{font-size:11px;font-weight:750;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:99px}.sev-high .sev-chip{background:#ff9f9f2e;color:#ffc4c4;border:1px solid #ff9f9f59}.sev-medium .sev-chip{background:#f3cd8b26;color:#ffe2b0;border:1px solid #f3cd8b52}
+.identity-chip{font-size:11px;padding:3px 8px;border-radius:99px;border:1px solid #d7e8ff33;color:#c9d6e6}.identity-chip.confirmed{border-color:#8fe3c166;color:#b6f0d4}.identity-chip.likely{border-color:#f3cd8b59;color:#f3d9a8}
+.risk-flag ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px}.risk-flag li{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;font-size:13px;line-height:1.5;color:#dde7f3}
+.risk-evidence{flex:none;display:inline-flex;align-items:center;gap:3px;border:0;background:transparent;padding:0;color:#9bd5ff;font-size:12px;white-space:nowrap;cursor:pointer;text-decoration:none}.risk-evidence:hover{text-decoration:underline}.risk-evidence:focus-visible{outline:2px solid #9cc5fa;outline-offset:2px;border-radius:3px}
+.risk-flag footer{font-size:11px;color:#a9bfd9;border-top:1px solid #d7e8ff1f;padding-top:8px}
+.risk-notes{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}.risk-notes li{display:flex;align-items:flex-start;gap:7px;font-size:12px;color:#b9c9dc}.risk-notes svg{flex:none;margin-top:3px;color:#9cc5fa}.risk-notes strong{color:#dfe8f3;font-weight:600}
+.risk-disclaimer{display:block;margin-top:12px;font-size:11px;color:#9fb3cc}
+@media(max-width:760px){.risk-overview{flex-direction:column}.risk-level{border-right:0;border-bottom:1px solid #d7e8ff2e;padding:0 0 12px}}
+@media(pointer:coarse){.risk-evidence{min-height:44px;align-items:center}}
+@media(prefers-reduced-transparency:reduce){.risk-overview,.risk-flag{background:#132033!important}}

@@ -63,9 +63,15 @@ ADVERSE_FLAGS = {  # Most serious first; one flag per code.
     "sanction": ("reported_sanction", "Reported sanction"),
     "fine": ("regulatory_fine", "Regulatory fine reported"),
     "professional_measure": ("professional_measure", "Professional measure reported"),
-    "charge": ("reported_allegation", "Adverse reporting linked"),
-    "allegation": ("reported_allegation", "Adverse reporting linked"),
+    "charge": ("reported_allegation", "Allegations or charges reported"),
+    "allegation": ("reported_allegation", "Allegations or charges reported"),
 }
+# Severity of what a source reports, in the original researcher's High/Medium terms.
+# It describes the reported event, not the likelihood that the person did it.
+SEVERITY = {"conviction": "High", "settlement": "High", "sanction": "High", "fine": "Medium",
+            "professional_measure": "Medium", "charge": "Medium", "allegation": "Medium"}
+SEVERITY_ORDER = {"High": 0, "Medium": 1, "Low": 2}
+MAX_FLAG_ITEMS = 3
 
 
 def _merge(left: dict, right: dict) -> dict:
@@ -612,8 +618,20 @@ def deep_search(state: ResearchState) -> dict:
                         "search_queries": old.get("search_queries", 0) + len(queries)}}
 
 
-def _flag(code: str, group: str, label: str, reason: str, urls: list[str]) -> dict:
-    return {"code": code, "group": group, "label": label, "reason": reason, "source_urls": list(dict.fromkeys(urls))}
+def _flag(code: str, group: str, label: str, reason: str, urls: list[str], severity: str = "",
+          identity: str = "") -> dict:
+    return {"code": code, "group": group, "label": label, "reason": reason, "source_urls": list(dict.fromkeys(urls)),
+            "severity": severity, "identity": identity, "items": [], "mentions": 0}
+
+
+def _add_claim(flag: dict, claim: dict, url: str) -> None:
+    """Keep the distinct reported facts (at most three) so the flag says what was reported."""
+    flag["source_urls"] = list(dict.fromkeys(flag["source_urls"] + [url]))
+    flag["mentions"] += 1
+    summary = claim.get("summary", "").strip()
+    known = {i["summary"].casefold() for i in flag["items"]}
+    if summary and summary.casefold() not in known and len(flag["items"]) < MAX_FLAG_ITEMS:
+        flag["items"].append({"summary": summary, "url": url})
 
 
 def build_flags(state: ResearchState) -> list[dict]:
@@ -623,9 +641,10 @@ def build_flags(state: ResearchState) -> list[dict]:
         if item["identity"] != "confirmed":
             continue
         for claim in item.get("claims", []):
-            code, label = ADVERSE_FLAGS[claim.get("type", "other")]
-            flag = flags.setdefault(code, _flag(code, "act", label, "", []))
-            flag["source_urls"] = list(dict.fromkeys(flag["source_urls"] + [item["url"]]))
+            kind = claim.get("type") if claim.get("type") in ADVERSE_FLAGS else "allegation"
+            code, label = ADVERSE_FLAGS[kind]
+            flag = flags.setdefault(code, _flag(code, "act", label, "", [], SEVERITY[kind], "confirmed"))
+            _add_claim(flag, claim, item["url"])
     for flag in flags.values():
         count = len(flag["source_urls"])
         flag["reason"] = f"{count} {'source' if count == 1 else 'sources'} · strong identity match"
@@ -633,11 +652,15 @@ def build_flags(state: ResearchState) -> list[dict]:
 
     for hit in state.get("sanction_hits", []):
         if hit["identity"] == "confirmed":
-            result.insert(0, _flag("sanction_match", "act", "Sanctions list match",
-                                   f"{hit['list']} · {hit['matched_name']} · {hit['reason']}", [hit["url"]]))
+            flag = _flag("sanction_match", "act", "Sanctions list match",
+                         f"{hit['list']} · {hit['matched_name']} · {hit['reason']}", [hit["url"]], "High", "confirmed")
+            flag["items"] = [{"summary": f"Listed on the {hit['list']} as {hit['matched_name']}.", "url": hit["url"]}]
+            result.insert(0, flag)
         elif hit["identity"] == "possible":
-            result.append(_flag("possible_sanction_match", "review", "Possible sanctions list entry",
-                                f"{hit['list']} · {hit['matched_name']} · {hit['reason']}", [hit["url"]]))
+            flag = _flag("possible_sanction_match", "review", "Possible sanctions list entry",
+                         f"{hit['list']} · {hit['matched_name']} · {hit['reason']}", [hit["url"]], "Medium", "unconfirmed")
+            flag["items"] = [{"summary": f"A {hit['list']} entry shares the name {hit['matched_name']}.", "url": hit["url"]}]
+            result.append(flag)
     # When the reviewer judges the identity likely, surface candidate claims as review flags,
     # as the original researcher did. Advisory: they never become confirmed findings.
     review_state = state.get("review") or {}
@@ -648,9 +671,10 @@ def build_flags(state: ResearchState) -> list[dict]:
             if item["identity"] != "possible":
                 continue
             for claim in item.get("candidate_claims", []):
-                code, label = ADVERSE_FLAGS.get(claim.get("type"), ADVERSE_FLAGS["allegation"])
-                flag = likely.setdefault(code, _flag(f"likely_{code}", "review", f"{label} · identity likely", "", []))
-                flag["source_urls"] = list(dict.fromkeys(flag["source_urls"] + [item["url"]]))
+                kind = claim.get("type") if claim.get("type") in ADVERSE_FLAGS else "allegation"
+                code, label = ADVERSE_FLAGS[kind]
+                flag = likely.setdefault(code, _flag(f"likely_{code}", "review", label, "", [], SEVERITY[kind], "likely"))
+                _add_claim(flag, claim, item["url"])
         order = [v[0] for v in ADVERSE_FLAGS.values()]
         for code in sorted(likely, key=order.index):
             count = len(likely[code]["source_urls"])
@@ -678,6 +702,21 @@ def build_flags(state: ResearchState) -> list[dict]:
                             f"{count} {'page' if count == 1 else 'pages'} could not be read", []))
     order = {"act": 0, "review": 1, "coverage": 2}
     return sorted(result, key=lambda f: order[f["group"]])
+
+
+def risk_summary(flags: list[dict], review_state: dict | None) -> dict:
+    """One line for the top of the report: what the sources report, and how sure the identity is."""
+    adverse = [f for f in flags if f.get("severity") and f.get("identity") in {"confirmed", "likely"}]
+    if not adverse:
+        return {"level": "None found", "headline": "No adverse findings linked to this person in the sources searched.",
+                "identity": "none", "review": None}
+    adverse.sort(key=lambda f: SEVERITY_ORDER.get(f["severity"], 9))
+    labels = list(dict.fromkeys(f["label"] for f in adverse))
+    identity = "confirmed" if any(f["identity"] == "confirmed" for f in adverse) else "likely"
+    review_state = review_state or {}
+    return {"level": adverse[0]["severity"], "headline": " · ".join(labels),
+            "identity": identity, "mentions": sum(f.get("mentions", 0) for f in adverse),
+            "review": {"score": review_state.get("score"), "label": review_state.get("label")}}
 
 
 def next_identifiers(state: ResearchState) -> list[str]:
@@ -730,6 +769,7 @@ def assemble(state: ResearchState) -> dict:
         "register_hits": state.get("register_hits", []),
         "review": state.get("review"),
         "flags": flags,
+        "risk_summary": risk_summary(flags, state.get("review")),
         "risk_flags": list(dict.fromkeys(f["label"] for f in flags)),
         "coverage": coverage,
         "search_trace": state.get("search_trace", []),

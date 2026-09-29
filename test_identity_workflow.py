@@ -140,7 +140,7 @@ class IdentityWorkflowTests(unittest.TestCase):
         self.assertEqual(report["review_status"], "awaiting_human_review")
         self.assertEqual(report["flags"][0]["code"], "reported_allegation")
         self.assertEqual(report["flags"][0]["group"], "act")
-        self.assertEqual(report["risk_flags"], ["Adverse reporting linked"])
+        self.assertEqual(report["risk_flags"], ["Allegations or charges reported"])
 
     def test_biographical_fact_is_not_an_adverse_claim(self):
         item = self.assess_with_model(

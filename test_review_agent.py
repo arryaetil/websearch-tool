@@ -80,6 +80,10 @@ class ReviewAgentTests(unittest.TestCase):
                            "review": {"score": 90, "label": "Very High"}})["report"]
         flag = next(f for f in likely["flags"] if f["code"] == "likely_reported_settlement")
         self.assertEqual((flag["group"], len(flag["source_urls"])), ("review", 2))
+        self.assertEqual((flag["severity"], flag["identity"], flag["mentions"]), ("High", "likely", 2))
+        self.assertEqual(len(flag["items"]), 1)  # The same reported fact twice is listed once.
+        self.assertEqual(likely["risk_summary"]["level"], "High")
+        self.assertEqual(likely["risk_summary"]["identity"], "likely")
         self.assertEqual(likely["confirmed_findings"], [])
         self.assertEqual(len(likely["candidate_findings"]), 2)
         doubtful = assemble({"name": "Jan de Vries", "city": "Zwolle", "assessments": items,
