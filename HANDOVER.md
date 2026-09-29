@@ -23,13 +23,12 @@ The user specifically approved the personal case's name, location, alias, organi
 
 - `python -m pytest -q -p no:cacheprovider test_identity_rules.py test_identity_workflow.py test_api.py`: 41 passed before the current commit. Run again after edits.
 - The public frontend is `https://kycx-adverse-media-production.up.railway.app/login`. Railway project ID `3b9dd43c-a2d3-430e-bfe9-e7cbe965bc6e`; backend service `kycx-api`, frontend service `kycx-adverse-media`.
-- Successful backend deployment before the candidate-claims change: `1f25056b-d7af-424e-94be-964d784fda80`. PDF, search and parallelism changes are live. Deploy new backend changes from repository root with `railway up --service kycx-api --detach --json`; poll deployment status. Deploy frontend changes with `railway up ./frontend --path-as-root --service kycx-adverse-media --detach --json` from the repository root. A prior frontend deployment from the wrong directory caused `/login` 404.
+- Current successful deployments: backend `80a0f456-8e8f-444c-be9c-91b26240dba7`, frontend `942bea97-3738-4b52-86d6-a310efab9ff4`. PDF, search, parallelism and candidate-claims changes are live. Deploy future backend changes from repository root with `railway up --service kycx-api --detach --json`; poll deployment status. Deploy frontend changes with `railway up ./frontend --path-as-root --service kycx-adverse-media --detach --json` from the repository root. A prior frontend deployment from the wrong directory caused `/login` 404.
 - The app stores evaluation runs for seven days in the private backend's SQLite volume. This retention is an evaluation default, not a legal determination. The shared admin credential exposes all saved runs to every holder.
 - Backend credentials are already configured on Railway. Local `.env` is Git-ignored. Never print or commit keys. `data/` is also ignored.
 
 ## Next work
 
-1. Commit/push and deploy the candidate-claims change; verify frontend and backend deployments. Keep full case notes local and publish only anonymized metrics.
-2. The approved personal case after the city-attribution rule still has a recall gap: all eight evaluated sources remained possible matches, with zero confirmed findings. Do not relax identity thresholds merely to inflate findings. Evaluate a conditional deeper-search step with source corroboration.
-3. Obtain reliable identity anchors for the remaining proposed cases. Build an analyst-reviewed reference set with both correct persons and namesakes, then compare false links, missed material findings, quote validity, time and cost.
-4. Consider a conditional deeper-search branch in LangGraph for unresolved cases. It can improve recall at a higher cost, but any output still needs source-linked verification and clear review status.
+1. The approved personal case after the city-attribution rule still has a recall gap: all eight evaluated sources remained possible matches, with zero confirmed findings. Do not relax identity thresholds merely to inflate findings. Evaluate a conditional deeper-search step with source corroboration.
+2. Obtain reliable identity anchors for the remaining proposed cases. Build an analyst-reviewed reference set with both correct persons and namesakes, then compare false links, missed material findings, quote validity, time and cost.
+3. Consider a conditional deeper-search branch in LangGraph for unresolved cases. It can improve recall at a higher cost, but any output still needs source-linked verification and clear review status.
