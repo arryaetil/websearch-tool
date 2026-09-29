@@ -638,6 +638,26 @@ def build_flags(state: ResearchState) -> list[dict]:
         elif hit["identity"] == "possible":
             result.append(_flag("possible_sanction_match", "review", "Possible sanctions list entry",
                                 f"{hit['list']} · {hit['matched_name']} · {hit['reason']}", [hit["url"]]))
+    # When the reviewer judges the identity likely, surface candidate claims as review flags,
+    # as the original researcher did. Advisory: they never become confirmed findings.
+    review_state = state.get("review") or {}
+    score = review_state.get("score")
+    if score is not None and score >= review_agent.LIKELY_SCORE:
+        likely: dict[str, dict] = {}
+        for item in assessments:
+            if item["identity"] != "possible":
+                continue
+            for claim in item.get("candidate_claims", []):
+                code, label = ADVERSE_FLAGS.get(claim.get("type"), ADVERSE_FLAGS["allegation"])
+                flag = likely.setdefault(code, _flag(f"likely_{code}", "review", f"{label} · identity likely", "", []))
+                flag["source_urls"] = list(dict.fromkeys(flag["source_urls"] + [item["url"]]))
+        order = [v[0] for v in ADVERSE_FLAGS.values()]
+        for code in sorted(likely, key=order.index):
+            count = len(likely[code]["source_urls"])
+            likely[code]["reason"] = (f"{count} {'source' if count == 1 else 'sources'} · reviewer {review_state.get('label')} "
+                                      f"({score}) · confirm identity before relying on it")
+            result.append(likely[code])
+
     possible = [item for item in assessments if item["identity"] == "possible"]
     if possible:
         signals = sum(1 for item in possible if item.get("adverse_signal"))

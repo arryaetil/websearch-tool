@@ -72,6 +72,19 @@ class ReviewAgentTests(unittest.TestCase):
         review, _ = review_agent.run_review({"name": "Jan de Vries", "assessments": []}, lambda: 1 / 0)
         self.assertEqual((review["score"], review["label"]), (0, "No relevant sources"))
 
+    def test_likely_identity_surfaces_candidate_claims_as_review_flags(self):
+        from identity_workflow import assemble
+        claim = {"summary": "A deal with prosecutors was reported.", "quote": "deal", "type": "settlement"}
+        items = [source("https://a.example", "possible", 2, [claim]), source("https://b.example", "possible", 2, [claim])]
+        likely = assemble({"name": "Jan de Vries", "city": "Zwolle", "assessments": items,
+                           "review": {"score": 90, "label": "Very High"}})["report"]
+        flag = next(f for f in likely["flags"] if f["code"] == "likely_reported_settlement")
+        self.assertEqual((flag["group"], len(flag["source_urls"])), ("review", 2))
+        self.assertEqual(likely["confirmed_findings"], [])
+        doubtful = assemble({"name": "Jan de Vries", "city": "Zwolle", "assessments": items,
+                             "review": {"score": 60, "label": "Moderate"}})["report"]
+        self.assertFalse(any(f["code"].startswith("likely_") for f in doubtful["flags"]))
+
     def test_routing_runs_deeper_search_once_for_unresolved_cases(self):
         wanted = {"review": {"score": 60, "deeper_search": {"needed": True, "queries": ['"Jan de V." Zwolle']}}}
         self.assertEqual(route_after_review({**STATE, **wanted}), "deep_search")
