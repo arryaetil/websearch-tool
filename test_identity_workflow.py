@@ -40,6 +40,7 @@ class IdentityWorkflowTests(unittest.TestCase):
         self.assertEqual(item["identity"], "possible")
         self.assertEqual(item["confidence_score"], 2)
         self.assertEqual(item["claims"], [])
+        self.assertEqual(len(item["candidate_claims"]), 1)
         self.assertTrue(item["adverse_signal"])
 
     def test_nickname_and_surname_initial_are_not_a_different_person(self):

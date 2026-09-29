@@ -512,6 +512,7 @@ def adverse(state: ResearchState) -> dict:
         claims = item.get("claims", [])
         keep = item["identity"] == "confirmed"
         gated.append({**item, "claims": claims if keep else [],
+                      "candidate_claims": claims if item["identity"] == "possible" else [],
                       "adverse_signal": bool(claims) and item["identity"] == "possible"})
     return {"assessments": gated}
 

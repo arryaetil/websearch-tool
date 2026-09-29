@@ -153,6 +153,7 @@ button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid #a9
 .source-item.selected{background:linear-gradient(112deg,#4a62817d,#293d58ae);border-color:#9ac4f57a;box-shadow:inset 0 1px 0 #ffffff24}
 .filter.active{background:#9bbcf044;border-color:#b5d4fa72;color:#f5f9ff}
 .detail-pane{background:#101722}.identity-assessment{background:linear-gradient(135deg,#26334a,#1a2434);border-color:#9dbff049}.claim-card,.coverage-item{background:#141d2a}
+.candidate-claims{margin-top:18px;padding:16px;border:1px solid #e0ae6255;border-radius:9px;background:#3b301f55}.candidate-claims h4{font-size:13px;font-weight:650;color:#f4d39b}.candidate-claims p{margin:6px 0 14px;color:#e1d6c4;font-size:12px;line-height:1.5}.candidate-claims .claim-card{border-color:#e0ae6255}
 .flag-panel,.coverage-panel{background:#142238d9;border-color:#b7d2f044;box-shadow:inset 0 1px 0 #ffffff20}
 @supports not ((-webkit-backdrop-filter:blur(1px)) or (backdrop-filter:blur(1px))){.login-card{background:#101b2d}.search-panel{background:#1b2b40}.source-pane{background:#1c2a3d}.sidebar{background:#101a29}}
 @media(max-width:680px){.login-card{background:linear-gradient(150deg,#1d2e45e8,#0c1729f2)}.search-panel{background:linear-gradient(145deg,#2a3f59df,#132238eb)}.sidebar{background:#111e30f2}}
