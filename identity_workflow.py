@@ -719,6 +719,13 @@ def assemble(state: ResearchState) -> dict:
             for item in assessments if item["identity"] == "confirmed"
             for c in item["claims"]
         ],
+        # Unconfirmed adverse claims for the reviewer; used by the rubriek layout.
+        "candidate_findings": [
+            {"summary": c["summary"], "quote": c["quote"], "url": item["url"], "type": c.get("type", ""),
+             "confidence_score": item.get("confidence_score", 0)}
+            for item in assessments if item["identity"] == "possible"
+            for c in item.get("candidate_claims", [])
+        ],
         "sanction_hits": [h for h in state.get("sanction_hits", []) if h["identity"] != "unrelated"],
         "register_hits": state.get("register_hits", []),
         "review": state.get("review"),

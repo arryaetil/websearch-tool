@@ -81,6 +81,7 @@ class ReviewAgentTests(unittest.TestCase):
         flag = next(f for f in likely["flags"] if f["code"] == "likely_reported_settlement")
         self.assertEqual((flag["group"], len(flag["source_urls"])), ("review", 2))
         self.assertEqual(likely["confirmed_findings"], [])
+        self.assertEqual(len(likely["candidate_findings"]), 2)
         doubtful = assemble({"name": "Jan de Vries", "city": "Zwolle", "assessments": items,
                              "review": {"score": 60, "label": "Moderate"}})["report"]
         self.assertFalse(any(f["code"].startswith("likely_") for f in doubtful["flags"]))

@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import {
   ArrowDownToLine, ArrowRight, ArrowUpRight, CircleHelp, Command,
-  Globe2, LoaderCircle, Menu, PanelLeftClose, Plus, Search, X,
+  Globe2, LoaderCircle, Menu, PanelLeftClose, Plus, Search, X, BrainCircuit, ThumbsDown, ThumbsUp,
 } from "lucide-react";
 
 type Identity = "confirmed" | "possible" | "unrelated";
@@ -31,6 +31,14 @@ type Flag = { code: string; group: FlagGroup; label: string; reason: string; sou
 type CoverageStatus = "searched" | "not_applicable" | "failed" | "stale" | "manual";
 type CoverageEntry = { key: string; label: string; status: CoverageStatus; detail: string; url?: string };
 type Profession = "unknown" | "healthcare" | "lawyer" | "other";
+type ReviewItem = { text: string; refs: string[]; direction?: "supports" | "contradicts" };
+type ReviewRecord = Record<string, string | string[]> & { refs: string[] };
+type Review = {
+  score: number | null; label: string; status?: string;
+  summary: ReviewItem[]; reasons: ReviewItem[]; refs?: Record<string, string>;
+  sections?: Record<string, ReviewRecord[]>;
+};
+
 type Report = {
   saved_run?: { id: string; created_at: number; expires_at: number };
   subject: { name: string; city: string; employer: string; aliases?: string[]; birth_year?: number | ""; profession?: Profession | "" };
@@ -44,6 +52,7 @@ type Report = {
   flags?: Flag[];
   coverage?: CoverageEntry[];
   next_identifiers?: string[];
+  review?: Review | null;
   review_status: string;
   limitations: string[];
   errors: string[];
@@ -71,11 +80,29 @@ function Brand() {
 // Four ordered evidence tiers shown on a 100-point scale, not probabilities.
 const scoreOutOf100 = (tier: number) => [0, 33, 67, 100][Math.max(0, Math.min(3, Math.round(tier)))] ?? 0;
 
+// Source references from the review agent ("S1", "R2") become buttons that open the evidence.
+function RefChips({ refs, review, onSource }: { refs: string[]; review?: Review | null; onSource: (url: string) => boolean }) {
+  return <>{refs.map((ref) => {
+    const url = review?.refs?.[ref];
+    return url ? <button key={ref} type="button" className="ref-chip" onClick={() => { if (!onSource(url)) window.open(url, "_blank", "noopener"); }} aria-label={`Show source ${ref}`}>{ref}</button> : null;
+  })}</>;
+}
+
+function ReviewRecords({ records, fields, review, onSource }: { records: ReviewRecord[]; fields: string[]; review?: Review | null; onSource: (url: string) => boolean }) {
+  return <>{records.map((record, index) => <div className="legacy-item review-item" key={index}>
+    <strong>{String(record[fields[0]] || "")}</strong>
+    <span>{fields.slice(1).map((field) => record[field]).filter(Boolean).join(" · ")}</span>
+    <div className="review-item-refs"><span>Review agent</span><RefChips refs={record.refs} review={review} onSource={onSource}/></div>
+  </div>)}</>;
+}
+
 const coverageWord: Record<CoverageStatus, string> = {
   searched: "Searched", not_applicable: "Not applicable", failed: "Not searched", stale: "Outdated list", manual: "Manual check",
 };
 
-function ReportSections({ report, onSource, sourcesRef }: { report: Report; onSource: (url: string) => void; sourcesRef: React.RefObject<HTMLDetailsElement | null> }) {
+function ReportSections({ report, onSource, sourcesRef }: { report: Report; onSource: (url: string) => boolean; sourcesRef: React.RefObject<HTMLDetailsElement | null> }) {
+  const review = report.review;
+  const section = (key: string) => review?.sections?.[key] || [];
   const relevant = report.sources.filter((source) => source.claims.length || source.candidate_claims?.length);
   const legal = relevant.filter((source) => [...source.claims, ...(source.candidate_claims || [])]
     .some((claim) => ["charge", "conviction", "settlement", "fine", "sanction", "professional_measure"].includes(claim.type || "")));
@@ -93,12 +120,14 @@ function ReportSections({ report, onSource, sourcesRef }: { report: Report; onSo
   return <>
     <div className="legacy-columns">
       <div className="legacy-column">
-        <details><summary>Identity Matches <span>{identities.length}</span></summary><div className="legacy-content">{identities.length ? identities.map((source) => <div className="legacy-item" key={source.url}><strong>{source.identity_card?.name?.value || source.title || "Possible identity"}</strong><span>{source.identity === "confirmed" ? "Strong match" : "Needs review"} · identity evidence {source.confidence_score === undefined ? "—" : scoreOutOf100(source.confidence_score)}/100</span><p>{source.reason}</p><button type="button" onClick={() => onSource(source.url)}>Inspect identity <ArrowRight size={13}/></button></div>) : <p className="legacy-empty">No identity leads in the readable sources.</p>}</div></details>
-        <details><summary>Business Records <span>{businessLeads.length}</span></summary><div className="legacy-content">{businessLeads.length ? businessLeads.map((lead, index) => <div className="legacy-item" key={`${lead.source_url}-${index}`}><strong>{lead.value}</strong><span>Company mentioned in a source; registry role not verified</span><button type="button" onClick={() => onSource(lead.source_url)}>Inspect source <ArrowRight size={13}/></button></div>) : <p className="legacy-empty">No source-linked company leads found. Company roles were not independently verified.</p>}</div></details>
+        <details open={section("identity_matches").length > 0}><summary>Identity Matches <span>{section("identity_matches").length || identities.length}</span></summary><div className="legacy-content"><ReviewRecords records={section("identity_matches")} fields={["name", "confidence", "description"]} review={review} onSource={onSource}/>{identities.length ? identities.map((source) => <div className="legacy-item" key={source.url}><strong>{source.identity_card?.name?.value || source.title || "Possible identity"}</strong><span>{source.identity === "confirmed" ? "Strong match" : "Needs review"} · identity evidence {source.confidence_score === undefined ? "—" : scoreOutOf100(source.confidence_score)}/100</span><p>{source.reason}</p><button type="button" onClick={() => onSource(source.url)}>Inspect identity <ArrowRight size={13}/></button></div>) : <p className="legacy-empty">No identity leads in the readable sources.</p>}</div></details>
+        <details><summary>Business Records <span>{section("business_records").length + businessLeads.length}</span></summary><div className="legacy-content"><ReviewRecords records={section("business_records")} fields={["entity", "role", "status", "source"]} review={review} onSource={onSource}/>{businessLeads.length ? businessLeads.map((lead, index) => <div className="legacy-item" key={`${lead.source_url}-${index}`}><strong>{lead.value}</strong><span>Company mentioned in a source; registry role not verified</span><button type="button" onClick={() => onSource(lead.source_url)}>Inspect source <ArrowRight size={13}/></button></div>) : section("business_records").length ? null : <p className="legacy-empty">No source-linked company leads found. Company roles were not independently verified.</p>}</div></details>
+        <details><summary>Professional Profiles <span>{section("professional_profiles").length}</span></summary><div className="legacy-content">{section("professional_profiles").length ? <ReviewRecords records={section("professional_profiles")} fields={["role", "company", "platform"]} review={review} onSource={onSource}/> : <p className="legacy-empty">No professional profile found in the readable sources.</p>}</div></details>
       </div>
       <div className="legacy-column">
         <details open><summary>Media Mentions <span>{relevant.length}</span></summary><div className="legacy-content">{evidence(relevant)}</div></details>
-        <details><summary>Legal Public Records <span>{legal.length + (report.sanction_hits?.length || 0)}</span></summary><div className="legacy-content">{legal.length ? <><p className="legacy-empty">Reported legal claims from media or public pages; verify the original record.</p>{evidence(legal)}</> : <p className="legacy-empty">No source-supported legal claim extracted. This does not rule out a record.</p>}{report.sanction_hits?.map((hit, index) => <div className="legacy-item" key={`${hit.url}-${index}`}><strong>Sanctions list candidate · {hit.matched_name}</strong><span>{hit.list} · {hit.identity === "confirmed" ? "Strong match" : "Verify identity"}</span><p>{hit.reason}</p><a href={hit.url} target="_blank" rel="noopener noreferrer">Official list <ArrowUpRight size={13}/></a></div>)}</div></details>
+        <details><summary>Legal Public Records <span>{section("legal_public_records").length + legal.length + (report.sanction_hits?.length || 0)}</span></summary><div className="legacy-content"><ReviewRecords records={section("legal_public_records")} fields={["issue_type", "summary", "source", "date"]} review={review} onSource={onSource}/>{legal.length ? <><p className="legacy-empty">Reported legal claims from media or public pages; verify the original record.</p>{evidence(legal)}</> : section("legal_public_records").length ? null : <p className="legacy-empty">No source-supported legal claim extracted. This does not rule out a record.</p>}{report.sanction_hits?.map((hit, index) => <div className="legacy-item" key={`${hit.url}-${index}`}><strong>Sanctions list candidate · {hit.matched_name}</strong><span>{hit.list} · {hit.identity === "confirmed" ? "Strong match" : "Verify identity"}</span><p>{hit.reason}</p><a href={hit.url} target="_blank" rel="noopener noreferrer">Official list <ArrowUpRight size={13}/></a></div>)}</div></details>
+        <details><summary>Social Media Presence <span>{section("social_media_presence").length}</span></summary><div className="legacy-content">{section("social_media_presence").length ? <ReviewRecords records={section("social_media_presence")} fields={["platform", "description"]} review={review} onSource={onSource}/> : <p className="legacy-empty">No social media presence found in the readable sources.</p>}</div></details>
       </div>
     </div>
     <details className="legacy-sources" ref={sourcesRef}><summary>Sources <span>{report.sources.length}</span></summary><div className="legacy-content">{report.sources.length ? report.sources.map((source, index) => <details className="source-evidence" data-source-index={index} key={`${source.url}-${index}`}><summary><strong>{source.title || "Untitled source"}</strong><span>{source.identity === "confirmed" ? "Strong match" : source.identity === "possible" ? "Identity to verify" : "Other person"} · identity evidence {source.confidence_score === undefined ? "—" : scoreOutOf100(source.confidence_score)}/100</span></summary><div className="source-evidence-body"><p>{source.reason}</p>{[...source.claims, ...(source.candidate_claims || [])].map((claim, claimIndex) => <blockquote key={claimIndex}><strong>{claim.summary}</strong><br/>“{claim.quote}”</blockquote>)}<a href={source.url} target="_blank" rel="noopener noreferrer">{source.url} <ArrowUpRight size={13}/></a>{source.archive && <a href={source.archive.url} target="_blank" rel="noopener noreferrer">Archived copy <ArrowUpRight size={13}/></a>}</div></details>) : <p className="legacy-empty">No readable sources found.</p>}{report.coverage && <div className="source-coverage"><strong>Automatic search coverage</strong>{report.coverage.filter((entry) => entry.status !== "manual" && entry.key !== "big").map((entry) => <p key={entry.key}>{entry.label}: {coverageWord[entry.status]} · {entry.detail}</p>)}</div>}{report.errors?.length > 0 && <div className="source-coverage"><strong>Unreadable pages</strong>{report.errors.map((item, index) => <p key={index}>{item}</p>)}</div>}</div></details>
@@ -112,7 +141,6 @@ export default function Home() {
   const [context, setContext] = useState("");
   const [aliases, setAliases] = useState("");
   const [birthYear, setBirthYear] = useState("");
-  const [profession, setProfession] = useState<Profession>("unknown");
   const [report, setReport] = useState<Report | null>(null);
   const [savedRuns, setSavedRuns] = useState<SavedRun[]>([]);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
@@ -161,7 +189,6 @@ export default function Home() {
       setContext("");
       setAliases((payload.subject.aliases || []).join(", "));
       setBirthYear(payload.subject.birth_year ? String(payload.subject.birth_year) : "");
-      setProfession(payload.subject.profession || "unknown");
       setSidebarOpen(false);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not open saved run."); }
   }
@@ -215,7 +242,7 @@ export default function Home() {
       const response = await fetch("/api/research", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name, city, employer, context, aliases, birth_year: birthYear ? Number(birthYear) : null, profession }),
+        body: JSON.stringify({ name, city, employer, context, aliases, birth_year: birthYear ? Number(birthYear) : null }),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.detail || "Adverse media check failed.");
@@ -259,7 +286,6 @@ export default function Home() {
     setContext("");
     setAliases("");
     setBirthYear("");
-    setProfession("unknown");
     setError("");
     setSidebarOpen(false);
     setTimeout(() => inputRef.current?.focus(), 0);
@@ -293,7 +319,6 @@ export default function Home() {
                 <label className="field"><span>Birth year <small>OPTIONAL</small></span><input value={birthYear} onChange={(event) => setBirthYear(event.target.value.replace(/\D/g, "").slice(0, 4))} placeholder="e.g. 1972" inputMode="numeric" autoComplete="off" pattern="(19|20)[0-9]{2}" title="A four-digit year, for example 1972"/></label>
                 <label className="field"><span>Employer <small>OPTIONAL</small></span><input value={employer} onChange={(event) => setEmployer(event.target.value)} placeholder="Company name" autoComplete="off"/></label>
                 <label className="field"><span>Known as <small>NICKNAMES, COMMA SEPARATED</small></span><input value={aliases} onChange={(event) => setAliases(event.target.value)} placeholder="e.g. Appie" autoComplete="off" maxLength={160}/></label>
-                <label className="field"><span>Profession <small>OPTIONAL IDENTITY CLUE</small></span><select value={profession} onChange={(event) => setProfession(event.target.value as Profession)}><option value="unknown">Unknown</option><option value="healthcare">Healthcare</option><option value="lawyer">Lawyer</option><option value="other">Other</option></select></label>
               </div>
             </div>
             <button className="search-submit" type="submit" disabled={running}>{running ? <LoaderCircle size={18} className="spin"/> : <ArrowRight size={18}/>}<span>{running ? "Checking" : "Get to know your customer"}</span></button>
@@ -309,12 +334,18 @@ export default function Home() {
         {report ? <>
           <section className="case-heading"><div className="case-heading-left"><div className="case-avatar">{report.subject.name.split(" ").map((part) => part[0]).slice(0, 2).join("").toUpperCase()}</div><div><div className="case-title-line"><h2 ref={resultRef} tabIndex={-1}>{report.subject.name}</h2></div><div className="case-subline"><span><Globe2 size={14}/>{report.subject.city || "Location not supplied"}</span>{report.subject.employer && <><i/><span>{report.subject.employer}</span></>}</div></div></div><div className="case-actions"><button className="outline-button" onClick={downloadPdf} ><ArrowDownToLine size={16}/> Export draft</button></div></section>
 
-          <section className="legacy-score-card" aria-label="Identity confidence for adverse media">
+          {report.review && report.review.score !== null ? <section className="legacy-score-card review-score-card" aria-label="Review agent identity confidence">
+            <div className="legacy-score-number"><strong>{report.review.score}</strong><span>/ 100 identity confidence</span></div>
+            <div className="legacy-score-details"><h3><BrainCircuit size={18} aria-hidden="true"/>{report.review.label}<span className="review-badge">Review agent</span></h3><p>{report.review.reasons.find((item) => item.direction !== "contradicts")?.text || report.review.summary[0]?.text}</p><div className="legacy-score-track"><span style={{ width: `${report.review.score}%` }}/></div><small>How well all sources together match the details supplied. Advisory: it does not change confirmed findings or replace analyst review.</small></div>
+          </section> : <>
+            <section className="legacy-score-card" aria-label="Identity confidence for adverse media">
             <div className="legacy-score-number"><strong>{scoreOutOf100(adverseIdentityScore)}</strong><span>/ 100 identity confidence</span></div>
             <div className="legacy-score-details"><h3>{identityVerdict}</h3><p>{adverseSource?.reason || "No source-supported adverse identity lead was found in the readable sources."}</p><div className="legacy-score-track"><span style={{ width: `${scoreOutOf100(adverseIdentityScore)}%` }}/></div><small>Four evidence levels (0, 33, 67, 100). This is not a probability of fraud or a risk score.</small></div>
           </section>
+          </>}
           <section className="source-summary" aria-labelledby="source-summary-title">
             <div className="source-summary-heading"><div><span>RESEARCH OVERVIEW</span><h3 id="source-summary-title">Summary of the sources</h3></div><strong>{relevantSources.length} relevant · {sources.length} read</strong></div>
+            {report.review && report.review.summary.length > 0 && <div className="review-coherence"><div className="review-coherence-title"><BrainCircuit size={15} aria-hidden="true"/> How the sources fit together</div><ul className="review-summary">{report.review.summary.map((item, index) => <li key={index}>{item.text}<RefChips refs={item.refs} review={report.review} onSource={showSource}/></li>)}</ul>{report.review.reasons.length > 0 && <ul className="review-reasons">{report.review.reasons.map((item, index) => <li key={index} className={item.direction}>{item.direction === "contradicts" ? <ThumbsDown size={14} aria-label="Contradicts"/> : <ThumbsUp size={14} aria-label="Supports"/>}<span>{item.text}</span><RefChips refs={item.refs} review={report.review} onSource={showSource}/></li>)}</ul>}</div>}
             <p>{strongSources.length ? `${strongSources.length} ${strongSources.length === 1 ? "source has" : "sources have"} a strong identity match with reported findings.` : "No adverse finding has a strong identity match in the readable sources."} {reviewSources.length ? `${reviewSources.length} ${reviewSources.length === 1 ? "source mentions" : "sources mention"} possible adverse information that needs an analyst to confirm the person.` : "No unresolved adverse identity lead was extracted."}</p>
             {relevantSources.length ? <div className="source-summary-list">{relevantSources.slice(0, 5).map((source) => {
               const items = source.identity === "confirmed" ? source.claims : source.candidate_claims || [];
