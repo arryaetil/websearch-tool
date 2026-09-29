@@ -26,3 +26,21 @@ Run the old and new person researchers on the **same approved cases**, with the 
 5. End-to-end elapsed time, Serper queries, model calls/tokens and actual provider billing for each case.
 
 At present there is **no paired benchmark** against Perplexity and no evidence that LangGraph meets or exceeds its outcome quality. The current confidence score is a per-source, rule-based identity tier (0–3), not the old researcher's 0–100 report score; do not compare the numbers directly. The LangGraph implementation also does not yet return all of the baseline's professional, business and social-profile sections. Those fields need source-linked implementation if the product requires full report parity beyond the adverse-media person check.
+
+## Comparison report to produce
+
+For each approved test case, capture the same input, execution time and date, provider/model versions, and any source changes between runs. Report side-by-side:
+
+| Dimension | Measurement |
+| --- | --- |
+| Identity quality | Correct matches, false matches, unresolved matches and analyst rationale |
+| Finding quality | Material findings found/missed, unsupported claims, allegation versus conviction wording |
+| Evidence | Working URLs, quote support, independent corroboration and inaccessible pages |
+| Search coverage | Name forms, languages, query count, relevant-source recall, follow-up leads |
+| Traceability | Visible queries, source-to-claim path, identity decision factors, stage errors |
+| Speed | Median and 90th-percentile total time, plus search/fetch/model stage times |
+| Cost | Actual Perplexity invoice/usage where available; Serper credits, model tokens, hosting allocation and cost per completed run |
+| Reliability | Provider errors, timeouts, partial results and repeat-run variation |
+| Privacy | Data sent to each provider, stored result lifetime, access and deletion behavior |
+
+Show raw per-case values, aggregate summaries and a short failure analysis. If Perplexity does not expose exact search queries or usage charges per run, mark those cells **unavailable** rather than estimate them as measured facts. A lower score or faster run cannot compensate for a false person link or an unsupported adverse finding.
