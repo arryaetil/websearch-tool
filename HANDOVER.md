@@ -2,6 +2,8 @@
 
 ## Latest state (29 September 2026)
 
+- A liquid-glass refinement was added to the login card, input fields, navigation and search controls using translucent blue surfaces, backdrop blur, reflected top edges and the existing official IBC technology image. Source text/detail stays on an opaque dark plane for reading. Desktop (1280px) and mobile (390px) browser previews were inspected; `npm run build` passed and the Impeccable detector returned `[]`. Deploy the frontend with the documented `--path-as-root` command and verify the public login after deployment.
+
 - GitHub `main` is at `40f8900` (`Search on nicknames and shortened names, add Known as field`) when checked. Working tree was clean. Read `git log -5` before editing because work has continued beyond the older history below.
 - Latest frontend Railway deployment observed: `4b88426c-57c0-4f1d-abb7-fb8d4a1d036e`, status `SUCCESS`. The API and frontend have since gained Dutch source modules, a rule-based identity card, grouped risk flags, nickname matching and a Known as input. Check the current deployed API revision before claiming a particular feature works end to end.
 - `OSINT_PLAN.md` now prioritizes KVK extracts as a business-person identity anchor, BIG/NOvA for regulated professions, and official EU sanctions as a separate adverse source. KVK company-search API is not a general person-identity lookup. Rechtspraak generally pseudonymizes natural persons. Keep LangGraph as the routing and evidence workflow.

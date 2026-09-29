@@ -129,3 +129,31 @@ button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid #a9
 .source-meta-right{display:flex;align-items:center;gap:14px;flex:none}.archive-link{display:inline-flex;align-items:center;gap:5px;color:#9cc5fa}.archive-link:hover{color:#d4e6ff}
 @media(max-width:1180px){.search-fields{grid-template-columns:repeat(3,minmax(0,1fr))}.search-submit{grid-column:1/-1}}
 @media(max-width:680px){.search-fields{grid-template-columns:1fr}.search-submit{grid-column:auto}.flag-row{grid-template-columns:20px minmax(0,1fr)}.flag-actions{grid-column:2;justify-content:space-between}.identity-row{grid-template-columns:1fr;gap:3px}.tier-note{margin-left:0;flex-basis:100%}.source-meta-right{flex-wrap:wrap}.flag-link{min-height:44px}}
+
+/* IBC technology image supplies the color and movement behind the glass. */
+:root{--glass-edge:#d7e8ff45;--glass-soft-edge:#a9c8f02c;--glass-ink:#eef5ff}
+.login-form-side{background:linear-gradient(115deg,#020816a8,#0714273d 48%,#0208169c)}
+.login-card{position:relative;isolation:isolate;overflow:hidden;border:1px solid var(--glass-edge);border-radius:18px;background:linear-gradient(150deg,#213249c9 0%,#121d31df 49%,#0c1424e8 100%);-webkit-backdrop-filter:blur(34px) saturate(155%);backdrop-filter:blur(34px) saturate(155%);box-shadow:inset 0 1px 0 #ffffff70,inset 1px 0 0 #d4e8ff1c,0 30px 78px #0009}
+.login-card:before{content:"";position:absolute;inset:0 0 auto;height:92px;background:linear-gradient(180deg,#eaf5ff20,transparent);pointer-events:none;z-index:-1}
+.login-card input{border-color:#c4dcfa42;background:#09142691;color:var(--glass-ink);box-shadow:inset 0 1px 2px #0003}
+.login-card input::placeholder{color:#aabbd2}.login-card input:focus{border-color:#a6d0ff;box-shadow:0 0 0 3px #6daaff33,inset 0 1px 2px #0003}
+.login-brand-footer{border-top-color:#d7e8ff31}.login-brand-footer>span,.login-card label{color:#d2dff0}
+.login-card form button{border-color:#8fb8ff8c;background:linear-gradient(110deg,#4434b8,#066bc7 78%,#308be0);box-shadow:inset 0 1px 0 #ffffff69,0 11px 26px #003c8780;transition:transform .18s ease-out,filter .18s ease-out,box-shadow .18s ease-out}
+.login-card form button:active:not(:disabled),.search-submit:active:not(:disabled){transform:scale(.985)}
+.main-area{background:radial-gradient(ellipse 740px 520px at 78% 7%,#2a619557,transparent 72%),radial-gradient(ellipse 490px 370px at 7% 42%,#46469d2b,transparent 75%),#0a101a}
+.sidebar{background:linear-gradient(165deg,#1a2a3bd9,#0d1625ea 64%);border-right-color:#d7e8ff2e;box-shadow:inset -1px 0 0 #ffffff0c}
+.topbar{background:#152337a6;border-bottom-color:#d7e8ff2b;box-shadow:inset 0 1px 0 #ffffff19}
+.search-panel{position:relative;isolation:isolate;border-color:var(--glass-edge);border-radius:16px;background:linear-gradient(145deg,#344d69a9,#1a2b43bc 55%,#121e30d5);box-shadow:inset 0 1px 0 #ffffff54,0 20px 50px #02091573;-webkit-backdrop-filter:blur(28px) saturate(145%);backdrop-filter:blur(28px) saturate(145%)}
+.search-panel:before{content:"";position:absolute;inset:0 0 auto;height:70px;background:linear-gradient(180deg,#d7edff19,transparent);pointer-events:none;z-index:-1}
+.search-panel-header{border-bottom-color:#d7e8ff24}.search-icon{background:#a6c8ff26;color:#c6dbff}
+.field input,.field select{background:#091629ad;border-color:#c5ddfb46;color:#f5f8ff}.field input::placeholder{color:#abbad0}
+.search-submit{border-color:#9bc1ff9c;background:linear-gradient(112deg,#3435af,#086dc8 76%,#3192e5);box-shadow:inset 0 1px 0 #ffffff69,0 9px 22px #003c876b}
+.results-workspace{border-color:#c2daff45;box-shadow:inset 0 1px 0 #ffffff34,0 20px 52px #02071166}
+.source-pane{background:linear-gradient(155deg,#30425cc4,#1a2a3edb 62%);-webkit-backdrop-filter:blur(25px) saturate(130%);backdrop-filter:blur(25px) saturate(130%)}
+.source-item.selected{background:linear-gradient(112deg,#4a62817d,#293d58ae);border-color:#9ac4f57a;box-shadow:inset 0 1px 0 #ffffff24}
+.filter.active{background:#9bbcf044;border-color:#b5d4fa72;color:#f5f9ff}
+.detail-pane{background:#101722}.identity-assessment{background:linear-gradient(135deg,#26334a,#1a2434);border-color:#9dbff049}.claim-card,.coverage-item{background:#141d2a}
+.flag-panel,.coverage-panel{background:#142238d9;border-color:#b7d2f044;box-shadow:inset 0 1px 0 #ffffff20}
+@supports not ((-webkit-backdrop-filter:blur(1px)) or (backdrop-filter:blur(1px))){.login-card{background:#101b2d}.search-panel{background:#1b2b40}.source-pane{background:#1c2a3d}.sidebar{background:#101a29}}
+@media(max-width:680px){.login-card{background:linear-gradient(150deg,#1d2e45e8,#0c1729f2)}.search-panel{background:linear-gradient(145deg,#2a3f59df,#132238eb)}.sidebar{background:#111e30f2}}
+@media(prefers-reduced-motion:reduce){.login-card form button,.search-submit{transition:none}.login-card form button:active:not(:disabled),.search-submit:active:not(:disabled){transform:none}}
