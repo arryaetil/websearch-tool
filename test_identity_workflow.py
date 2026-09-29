@@ -2,7 +2,7 @@ import json
 import unittest
 from unittest.mock import MagicMock, patch
 
-from identity_workflow import adverse, assess, assemble, build_graph, safe_public_url, search
+from identity_workflow import adverse, assess, assemble, build_graph, follow_leads, safe_public_url, search
 from evidence_pdf import generate_evidence_pdf
 
 
@@ -41,6 +41,23 @@ class IdentityWorkflowTests(unittest.TestCase):
         self.assertEqual(item["confidence_score"], 2)
         self.assertEqual(item["claims"], [])
         self.assertTrue(item["adverse_signal"])
+
+    def test_nickname_and_surname_initial_are_not_a_different_person(self):
+        content = "De omstreden failliete makelaar Appie B. komt in het bericht voor."
+        client = MagicMock()
+        client.responses.create.return_value.output_text = json.dumps({
+            "person": person(name_as_written=("Appie B.", "makelaar Appie B.")),
+            "summary": "The article mentions a realtor called Appie B.",
+            "claims": [],
+        })
+        client.responses.create.return_value.usage = None
+        with patch.dict("identity_workflow.os.environ", {"OPENAI_API_KEY": "test-key"}), \
+             patch("identity_workflow.OpenAI", return_value=client):
+            item = assess({"name": "Albert Bril", "city": "Bergentheim",
+                           "pages": [self.page(content)]})["assessments"][0]
+        self.assertEqual(item["identity_card"]["name"]["status"], "partial")
+        self.assertEqual(item["identity"], "possible")
+        self.assertEqual(item["confidence_score"], 1)
 
     def test_model_request_explicitly_asks_for_json(self):
         client = MagicMock()
@@ -157,9 +174,24 @@ class IdentityWorkflowTests(unittest.TestCase):
             result = search({"name": "Alex Jansen", "city": "Utrecht", "aliases": ["lex"]})
         urls = [item["url"] for item in result["results"]]
         self.assertEqual(result["metrics"]["search_queries"], 5)
-        self.assertEqual(len(urls), 8)
+        self.assertEqual(len(urls), 12)
+        self.assertEqual(len(result["search_trace"]), 5)
         for group in ("dutch", "official", "alias", "identity"):
             self.assertTrue(any(f"{group}.example" in url for url in urls), group)
+
+    def test_follow_up_only_uses_source_grounded_leads(self):
+        state = {"name": "Alex Jansen", "city": "Utrecht", "pages": [],
+                 "assessments": [{"identity": "possible", "leads": [
+                     {"kind": "company", "value": "Example Studio", "source_url": "https://example.com/a"}]}],
+                 "metrics": {"search_queries": 5}}
+        response = MagicMock()
+        response.json.return_value = {"organic": []}
+        with patch.dict("identity_workflow.os.environ", {"SERPER_API_KEY": "test-key"}), \
+             patch("identity_workflow.requests.post", return_value=response):
+            result = follow_leads(state)
+        self.assertEqual(result["metrics"]["search_queries"], 6)
+        self.assertIn('"Example Studio"', result["search_trace"][0]["query"])
+        self.assertEqual(result["assessments"], state["assessments"])
 
     def test_graph_runs_branches_and_survives_failures(self):
         with patch("identity_workflow.search", return_value={"results": [], "coverage": []}), \

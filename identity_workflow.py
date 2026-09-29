@@ -36,7 +36,9 @@ from identity_rules import (
 load_dotenv(Path(__file__).parent / ".env")
 
 
-MAX_RESULTS = 8
+MAX_RESULTS = 12
+MAX_FOLLOW_UP_QUERIES = 2
+MAX_FOLLOW_UP_RESULTS = 4
 MAX_BYTES = 500_000
 OFFICIAL_SITES = ("afm.nl", "dnb.nl", "kvk.nl", "rechtspraak.nl")
 PROFESSIONS = ("healthcare", "lawyer", "other", "unknown")
@@ -74,6 +76,8 @@ class ResearchState(TypedDict, total=False):
     context: str
     results: list[dict]
     pages: list[dict]
+    follow_up_pages: list[dict]
+    search_trace: Annotated[list[dict], operator.add]
     assessments: list[dict]
     sanction_hits: list[dict]
     register_hits: list[dict]
@@ -114,6 +118,15 @@ def intake(state: ResearchState) -> dict:
     return {}
 
 
+def _serper(query: str, key: str) -> list[dict]:
+    response = requests.post(
+        "https://google.serper.dev/search", headers={"X-API-KEY": key},
+        json={"q": query, "num": 10}, timeout=15,
+    )
+    response.raise_for_status()
+    return response.json().get("organic", [])
+
+
 def search(state: ResearchState) -> dict:
     started = time.perf_counter()
     key = os.environ.get("SERPER_API_KEY")
@@ -133,26 +146,19 @@ def search(state: ResearchState) -> dict:
         queries.append("(" + " OR ".join(f'"{form}"' for form in forms) + f') "{state["city"]}"')
     if state.get("employer"):
         queries.append(f'"{name}" "{state["employer"]}"')
+    if state.get("context"):
+        queries.append(f'"{name}" "{state["context"][:80]}"')
     queries.append(f'"{name}" "{state["city"]}"')
-
-    def run_query(query: str) -> list[dict]:
-        response = requests.post(
-            "https://google.serper.dev/search",
-            headers={"X-API-KEY": key},
-            json={"q": query, "num": 10},
-            timeout=15,
-        )
-        response.raise_for_status()
-        return response.json().get("organic", [])
 
     try:
         # Reserve space for each query so adverse, official-site and identity
         # context all reach the fetch step.
         with ThreadPoolExecutor(max_workers=len(queries)) as pool:
-            query_hits = list(pool.map(run_query, queries))
+            query_hits = list(pool.map(lambda query: _serper(query, key), queries))
     except requests.RequestException as exc:
         return {"results": [], "coverage": [_coverage(
             "web", "Web and official-site search", "failed", f"Search provider error: {type(exc).__name__}")],
+            "search_trace": [{"phase": "initial", "query": q} for q in queries],
             "metrics": {"search_seconds": round(time.perf_counter() - started, 2), "search_queries": len(queries)}}
     results, seen = [], set()
     quota = max(1, MAX_RESULTS // len(queries))
@@ -167,7 +173,9 @@ def search(state: ResearchState) -> dict:
                     seen.add(url)
                     results.append({"url": url, "title": hit.get("title", "")})
                     added += 1
-    return {"results": results, "coverage": [_coverage(
+    return {"results": results, "search_trace": [
+        {"phase": "initial", "query": q, "hits": len(hits)} for q, hits in zip(queries, query_hits)],
+        "coverage": [_coverage(
         "web", "Web and official-site search", "searched",
         f"{len(queries)} queries, including {', '.join(OFFICIAL_SITES)}"
         + (f" and name forms {', '.join(forms)}" if forms else ""))],
@@ -283,6 +291,10 @@ summary: one or two neutral sentences for an analyst on who the source describes
 claims: array of objects with summary, exact_quote and type, where type is one of
   allegation, charge, conviction, settlement (a deal with prosecutors), fine, sanction,
   professional_measure, other.
+leads: array of at most two objects with kind (company or court_case), value (the
+  company name or case identifier), and exact_quote. Include a lead only when the
+  source explicitly links that company or case to the named person. The quote must
+  contain the value verbatim.
 Only report facts the source states about that person. Never guess an age, city or
 employer, and never copy the subject details into the answer. Claims cover only
 potentially adverse public reporting about that person, never ordinary career facts.
@@ -359,11 +371,22 @@ def assess(state: ResearchState) -> dict:
             if quote and _verified(quote, quote, text):
                 kind = claim.get("type") if claim.get("type") in ADVERSE_FLAGS else "other"
                 claims.append({"summary": str(claim.get("summary", "")), "quote": quote, "type": kind})
+        leads = []
+        if identity != "unrelated":
+            for lead in data.get("leads", [])[:2]:
+                if not isinstance(lead, dict) or lead.get("kind") not in {"company", "court_case"}:
+                    continue
+                value = str(lead.get("value", "")).strip()
+                quote = str(lead.get("exact_quote", "")).strip()
+                if (3 <= len(value) <= 100 and re.fullmatch(r"[\w\s.,'&()/-]+", value)
+                        and _verified(value, quote, text) and value.casefold() in quote.casefold()):
+                    leads.append({"kind": lead["kind"], "value": value, "source_url": page["url"]})
         summary = str(data.get("summary", "")).strip()
         assessments.append({
             "url": page["url"], "title": page["title"], "identity": identity,
             "reason": f"{rule} {summary}".strip(), "identity_card": card,
             "claims": claims, "confidence_score": score,
+            "leads": leads,
             "retrieved_at": page["retrieved_at"], "sha256": page["sha256"],
         })
     return {"assessments": assessments, "metrics": {
@@ -373,6 +396,57 @@ def assess(state: ResearchState) -> dict:
         "cached_input_tokens": cached_tokens,
         "output_tokens": output_tokens,
     }}
+
+
+def follow_leads(state: ResearchState) -> dict:
+    """One bounded second search pass on source-grounded company and court leads."""
+    leads = list(dict.fromkeys(
+        (lead["kind"], lead["value"])
+        for item in state.get("assessments", []) if item["identity"] != "unrelated"
+        for lead in item.get("leads", [])
+    ))[:MAX_FOLLOW_UP_QUERIES]
+    if not leads:
+        return {"metrics": {"follow_up_queries": 0, "follow_up_pages": 0}}
+    key = os.environ.get("SERPER_API_KEY")
+    if not key:
+        return {"coverage": [_coverage("follow_up", "Lead follow-up", "failed", "Search key unavailable")]}
+    started = time.perf_counter()
+    queries = [f'"{state["name"]}" "{value}"' for _, value in leads]
+    try:
+        with ThreadPoolExecutor(max_workers=len(queries)) as pool:
+            batches = list(pool.map(lambda query: _serper(query, key), queries))
+    except requests.RequestException as exc:
+        return {"search_trace": [{"phase": "follow_up", "query": q} for q in queries],
+                "coverage": [_coverage("follow_up", "Lead follow-up", "failed", type(exc).__name__)],
+                "metrics": {"follow_up_queries": len(queries)}}
+    seen = {p["url"] for p in state.get("pages", [])}
+    pages = []
+    for batch in batches:
+        for hit in batch:
+            if len(pages) >= MAX_FOLLOW_UP_RESULTS:
+                break
+            url = hit.get("link", "")
+            if url in seen or not safe_public_url(url):
+                continue
+            seen.add(url)
+            try:
+                content = fetch_page(url)
+            except requests.RequestException:
+                continue
+            if content:
+                pages.append({"url": url, "title": hit.get("title", ""), "content": content,
+                              "retrieved_at": _now(), "sha256": hashlib.sha256(content.encode()).hexdigest()})
+    assessed = assess({**state, "pages": pages}) if pages else {"assessments": [], "metrics": {}}
+    old = state.get("metrics", {})
+    new = assessed["metrics"]
+    return {"assessments": state.get("assessments", []) + assessed["assessments"],
+            "search_trace": [{"phase": "follow_up", "query": q, "hits": len(h)} for q, h in zip(queries, batches)],
+            "coverage": [_coverage("follow_up", "Lead follow-up", "searched", f"{len(queries)} queries")],
+            "metrics": {**{key: old.get(key, 0) + new.get(key, 0) for key in
+                         ("assess_seconds", "model_calls", "input_tokens", "cached_input_tokens", "output_tokens")},
+                        "follow_up_queries": len(queries), "follow_up_pages": len(pages),
+                        "follow_up_seconds": round(time.perf_counter() - started, 2),
+                        "search_queries": old.get("search_queries", 0) + len(queries)}}
 
 
 def adverse(state: ResearchState) -> dict:
@@ -509,6 +583,7 @@ def assemble(state: ResearchState) -> dict:
         "flags": flags,
         "risk_flags": list(dict.fromkeys(f["label"] for f in flags)),
         "coverage": coverage,
+        "search_trace": state.get("search_trace", []),
         "next_identifiers": next_identifiers(state),
         "review_status": "awaiting_human_review",
         "limitations": [
@@ -529,6 +604,7 @@ def build_graph():
     graph.add_node("sanctions", check_sanctions)
     graph.add_node("big_register", check_big)
     graph.add_node("identity", assess)
+    graph.add_node("follow_leads", follow_leads)
     graph.add_node("adverse", adverse)
     graph.add_node("archive", archive)
     graph.add_node("assemble", assemble)
@@ -539,7 +615,8 @@ def build_graph():
     graph.add_edge("intake", "big_register")
     graph.add_edge("search", "fetch")
     graph.add_edge(["fetch", "sanctions", "big_register"], "identity")
-    graph.add_edge("identity", "adverse")
+    graph.add_edge("identity", "follow_leads")
+    graph.add_edge("follow_leads", "adverse")
     graph.add_edge("adverse", "archive")
     graph.add_edge("archive", "assemble")
     graph.add_edge("assemble", END)

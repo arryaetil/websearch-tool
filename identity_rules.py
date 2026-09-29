@@ -46,7 +46,9 @@ def search_aliases(full_name: str, aliases: list[str]) -> list[str]:
     tail = f"{prefix} {surname}".strip()
     # Order: the shortened given name, supplied aliases, then the commonest roepnamen.
     ordered = [n for group in NICKNAME_GROUPS if first[0] in group for n in group if n != first[0]]
-    forms = [f"{first[0].title()} {stub}."] + [a.title() for a in aliases if " " in a]
+    forms = [f"{first[0].title()} {stub}.", f"{first[0][0].upper()}. {tail.title()}"] + [a.title() for a in aliases if " " in a]
+    if len(first) > 1:
+        forms.append(f"{''.join(part[0].upper() + '.' for part in first)} {tail.title()}")
     for g in [a for a in aliases if " " not in a] + ordered:
         forms += [f"{g.title()} {stub}.", f"{g.title()} {f'{prefix} {surname.title()}'.strip()}"]
     return list(dict.fromkeys(forms))[:6]
